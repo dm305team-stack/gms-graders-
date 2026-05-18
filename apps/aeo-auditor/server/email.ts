@@ -16,8 +16,8 @@ interface SendReportArgs {
   analysisId: string;
   /** Compact branded HTML used as the email body. */
   emailHtml: string;
-  /** Disk path to the full HTML report, attached to the email. */
-  reportPath: string;
+  /** Disk path to the full PDF report, attached to the email. */
+  pdfPath: string;
 }
 
 function buildTransport(): nodemailer.Transporter | null {
@@ -55,17 +55,17 @@ export async function sendReportEmail(
       text:
         `Hi ${args.fullName},\n\n` +
         `Your AEO Visibility Audit for ${args.brand} (${args.domain}) is ready.\n` +
-        `The full report is attached as an HTML file.\n\n` +
+        `The full report is attached as a PDF.\n\n` +
         `This is a diagnostic scan of how the 4 major AI engines describe your ` +
         `practice. The next step is a 20-minute call with a GMS specialist to ` +
         `walk through the findings.\n\n` +
-        `Analysis ID: ${args.analysisId}\n\n` +
-        `— Growth Marketing Studios`,
+        `Audit ID: ${args.analysisId}\n\n` +
+        `Growth Marketing Studios`,
       attachments: [
         {
-          filename: `aeo-audit-${args.analysisId}.html`,
-          path: args.reportPath,
-          contentType: 'text/html',
+          filename: `aeo-audit-${args.analysisId}.pdf`,
+          path: args.pdfPath,
+          contentType: 'application/pdf',
         },
       ],
     });

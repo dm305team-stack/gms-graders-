@@ -36,6 +36,7 @@ interface AnalysisStatus {
   error: string | null;
   overall_scores: Record<string, number> | null;
   report_url: string | null;
+  pdf_url: string | null;
   email: { sent?: boolean; skipped?: boolean; error?: string } | null;
 }
 
@@ -100,6 +101,7 @@ export function AuditForm() {
         error: null,
         overall_scores: null,
         report_url: null,
+        pdf_url: null,
         email: null,
       });
     } catch (err) {
@@ -172,9 +174,14 @@ export function AuditForm() {
               ))}
             </div>
           )}
+          {st.pdf_url && (
+            <a className={s.reportLink} href={st.pdf_url} target="_blank" rel="noreferrer">
+              Download the PDF report
+            </a>
+          )}
           {st.report_url && (
-            <a className={s.reportLink} href={st.report_url} target="_blank" rel="noreferrer">
-              Open the full report
+            <a className={s.reportLinkSecondary} href={st.report_url} target="_blank" rel="noreferrer">
+              View in browser
             </a>
           )}
           <div className={s.statusId}>{st.analysis_id}</div>

@@ -45,6 +45,8 @@ export interface Analysis {
   error?: string;
   /** Disk path to the rendered HTML report, once produced. */
   report_path?: string;
+  /** Disk path to the rendered PDF report, once produced. */
+  pdf_path?: string;
   /** {chatgpt, perplexity, gemini, claude} overall scores, once synthesized. */
   overall_scores?: Record<EngineLabel, number>;
   synthesis?: SynthesizeOutput;

@@ -100,7 +100,8 @@ function publicView(a: Analysis) {
     cost_usd: a.cost_usd ?? null,
     stats: a.stats ?? null,
     email: a.email ?? null,
-    report_url: a.status === 'done' ? `/api/analyses/${a.analysis_id}/report` : null,
+    report_url: a.status === 'done' && a.report_path ? `/api/analyses/${a.analysis_id}/report` : null,
+    pdf_url: a.status === 'done' && a.pdf_path ? `/api/analyses/${a.analysis_id}/report.pdf` : null,
   };
 }
 
@@ -166,6 +167,15 @@ app.get('/api/analyses/:id/report', (req, res) => {
     return res.status(409).send(`report not ready (status: ${analysis.status})`);
   }
   res.type('html').sendFile(analysis.report_path);
+});
+
+app.get('/api/analyses/:id/report.pdf', (req, res) => {
+  const analysis = analyses.get(req.params.id);
+  if (!analysis) return res.status(404).send('analysis not found');
+  if (analysis.status !== 'done' || !analysis.pdf_path) {
+    return res.status(409).send(`report not ready (status: ${analysis.status})`);
+  }
+  res.type('pdf').sendFile(analysis.pdf_path);
 });
 
 app.listen(PORT, () => {

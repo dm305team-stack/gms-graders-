@@ -25,6 +25,7 @@ import {
   SYNTHESIZE_REPORT_PROMPT_V1,
   buildSynthesizeUserPrompt,
   type EngineId,
+  type EngineReport,
   type GeneratedQuery,
   type GenerateQueriesOutput,
   type ParsedResponse,
@@ -33,6 +34,7 @@ import {
 } from '@gms/llm';
 
 import { sendReportEmail } from './email.js';
+import { renderPdf } from './pdf.js';
 import { renderEmailHtml, renderReportHtml, extractOverallScores } from './report.js';
 import type { Analysis, EngineLabel } from './types.js';
 
@@ -81,11 +83,16 @@ export async function runPipeline(analysis: Analysis): Promise<void> {
     analysis.overall_scores = extractOverallScores(synthesis);
 
     analysis.status = 'rendering';
-    log('-> rendering HTML report');
+    log('-> rendering report (HTML + PDF)');
     const reportHtml = renderReportHtml(analysis, synthesis);
-    const reportPath = path.join(REPORTS_DIR, `${analysis.analysis_id}.html`);
-    fs.writeFileSync(reportPath, reportHtml, 'utf8');
-    analysis.report_path = reportPath;
+    const htmlPath = path.join(REPORTS_DIR, `${analysis.analysis_id}.html`);
+    fs.writeFileSync(htmlPath, reportHtml, 'utf8');
+    analysis.report_path = htmlPath;
+
+    const pdfPath = path.join(REPORTS_DIR, `${analysis.analysis_id}.pdf`);
+    await renderPdf(reportHtml, pdfPath);
+    analysis.pdf_path = pdfPath;
+    log(`PDF rendered (${(fs.statSync(pdfPath).size / 1024).toFixed(0)} KB)`);
 
     analysis.status = 'emailing';
     log(`-> emailing report to ${analysis.input.contact.email}`);
@@ -96,7 +103,7 @@ export async function runPipeline(analysis: Analysis): Promise<void> {
       domain: analysis.input.domain,
       analysisId: analysis.analysis_id,
       emailHtml: renderEmailHtml(analysis, synthesis),
-      reportPath,
+      pdfPath,
     });
 
     analysis.status = 'done';
@@ -315,9 +322,9 @@ async function runMockStages(
   return mockSynthesis(analysis);
 }
 
-function mockSynthesis(analysis: Analysis): SynthesizeOutput {
-  const brand = analysis.input.brand || 'the practice';
-  const engineScore = (overall: number) => ({
+/** Build a mock EngineReport: scores derived from `overall`, plus the rest. */
+function mockEngine(overall: number, rest: Omit<EngineReport, 'scores'>): EngineReport {
+  return {
     scores: {
       brand_recognition: Math.round(overall * 0.18),
       market_position: Math.round(overall * 0.08),
@@ -326,44 +333,103 @@ function mockSynthesis(analysis: Analysis): SynthesizeOutput {
       share_of_voice: Math.round(overall * 0.09),
       overall,
     },
-    confidence_pct: 72,
-    market_position_label: 'challenger' as const,
-    archetype: 'specialist' as const,
-    competitors_top: [
-      { name: 'Established regional group', share_pct: 38 },
-      { name: 'High-review-volume competitor', share_pct: 24 },
-    ],
-    narrative_themes: ['Recognized for specialty depth', 'Thin third-party citation footprint'],
-    key_strengths: ['Clear specialty focus', 'Positive sentiment when mentioned'],
-    growth_areas: ['Low mention frequency', 'Few authoritative sources cite the brand'],
-    trajectory: 'stable' as const,
-    sources_evaluation: [
-      { name: 'Practice website', type: 'official_website', score: 70, note: 'Solid but rarely cited.' },
-    ],
-  });
+    ...rest,
+  };
+}
+
+function mockSynthesis(analysis: Analysis): SynthesizeOutput {
+  const brand = analysis.input.brand || 'the practice';
 
   return {
     by_engine: {
-      chatgpt: engineScore(41),
-      perplexity: engineScore(48),
-      gemini: engineScore(44),
-      claude: engineScore(39),
+      chatgpt: mockEngine(41, {
+        confidence_pct: 67,
+        market_position_label: 'challenger',
+        archetype: 'specialist',
+        competitors_top: [
+          { name: 'Miami Aesthetic Institute', share_pct: 31 },
+          { name: 'Coral Gables Plastic Surgery', share_pct: 22 },
+          { name: 'South Beach Cosmetic Group', share_pct: 14 },
+        ],
+        narrative_themes: ['Board-certified specialist', 'Strong before/after results'],
+        key_strengths: ['Consistent specialty framing', 'Positive tone in every mention'],
+        growth_areas: ['Named in only 2 of 6 queries', 'Loses head-to-head comparisons'],
+        trajectory: 'stable',
+        sources_evaluation: [
+          { name: 'Practice website', type: 'official_website', score: 74, note: 'Authoritative but rarely cited back by the engine.' },
+          { name: 'RealSelf profile', type: 'review_platform', score: 61, note: 'Thin review volume versus competitors.' },
+        ],
+      }),
+      perplexity: mockEngine(54, {
+        confidence_pct: 84,
+        market_position_label: 'challenger',
+        archetype: 'premium',
+        competitors_top: [
+          { name: 'Miami Aesthetic Institute', share_pct: 27 },
+          { name: 'Bal Harbour Surgical Arts', share_pct: 19 },
+          { name: 'Coral Gables Plastic Surgery', share_pct: 16 },
+        ],
+        narrative_themes: ['Premium positioning', 'Cited across medical directories'],
+        key_strengths: ['Strong directory and citation footprint', 'Real-time sources reinforce credibility'],
+        growth_areas: ['Few patient testimonials surfaced', 'Pricing pages absent from answers'],
+        trajectory: 'positive',
+        sources_evaluation: [
+          { name: 'Healthgrades', type: 'directory', score: 88, note: 'Drives most of the positive signal here.' },
+          { name: 'Google Business Profile', type: 'directory', score: 79, note: 'Consistent NAP data, good review rating.' },
+          { name: 'Practice website', type: 'official_website', score: 72, note: 'Clear specialty pages, light on schema.' },
+        ],
+      }),
+      gemini: mockEngine(47, {
+        confidence_pct: 73,
+        market_position_label: 'niche_player',
+        archetype: 'traditionalist',
+        competitors_top: [
+          { name: 'Coral Gables Plastic Surgery', share_pct: 29 },
+          { name: 'Miami Aesthetic Institute', share_pct: 21 },
+          { name: 'Aventura Cosmetic Center', share_pct: 13 },
+        ],
+        narrative_themes: ['Reputation tied to the surgeon name', 'Local search visibility'],
+        key_strengths: ['Surfaces well in location queries', 'Google review rating cited directly'],
+        growth_areas: ['Limited topical depth per procedure', 'Sparse third-party editorial coverage'],
+        trajectory: 'stable',
+        sources_evaluation: [
+          { name: 'Google Maps listing', type: 'directory', score: 81, note: 'Primary source the engine leans on.' },
+          { name: 'Practice website', type: 'official_website', score: 70, note: 'Indexed, but few procedure-specific pages.' },
+        ],
+      }),
+      claude: mockEngine(38, {
+        confidence_pct: 62,
+        market_position_label: 'niche_player',
+        archetype: 'specialist',
+        competitors_top: [
+          { name: 'Miami Aesthetic Institute', share_pct: 34 },
+          { name: 'Bal Harbour Surgical Arts', share_pct: 18 },
+        ],
+        narrative_themes: ['Recognized as a careful specialist', 'Low overall mention volume'],
+        key_strengths: ['No reputational risk in any answer', 'Specialty depth acknowledged when named'],
+        growth_areas: ['Rarely named without a direct brand prompt', 'Almost no citable authority sources'],
+        trajectory: 'stable',
+        sources_evaluation: [
+          { name: 'Practice website', type: 'official_website', score: 68, note: 'The only source the engine could anchor to.' },
+        ],
+      }),
     },
     summary: {
       overall_grade: 'developing',
       key_strengths: [
-        `${brand} is described in positive terms when AI engines do surface it.`,
-        'Specialty positioning is consistent across all four engines.',
-        'No reputational red flags detected in any engine response.',
+        `${brand} is described in positive terms whenever an AI engine surfaces it.`,
+        'Specialty positioning stays consistent across all four engines.',
+        'No reputational red flags appear in any engine response.',
       ],
       growth_areas: [
-        'Brand mention frequency is low: engines default to larger competitors.',
+        'Mention frequency is low. Engines default to larger regional competitors.',
         'Few authoritative third-party sources cite the practice.',
-        'Share of voice trails the top regional competitor by a wide margin.',
+        'Share of voice trails the top competitor by more than 20 points.',
       ],
       narrative_themes: [
         'Specialist, not yet a default recommendation',
         'Sentiment is an asset, visibility is the gap',
+        'Competitors win on citation depth, not reputation',
       ],
       trajectory: 'stable',
       competitive_position: `${brand} reads as a credible specialist but is not yet a first-line recommendation in AI search. Competitors with deeper citation footprints capture most of the share of voice.`,
