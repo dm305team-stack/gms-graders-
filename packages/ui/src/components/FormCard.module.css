@@ -1,0 +1,26 @@
+.card {
+  position: relative;
+  max-width: 700px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 48px 56px;
+  box-shadow: var(--shadow-card);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 2px;
+  background: var(--grad);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.85;
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 32px 22px;
+    border-radius: 12px;
+  }
+}

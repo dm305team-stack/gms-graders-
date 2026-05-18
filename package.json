@@ -1,0 +1,25 @@
+{
+  "name": "gms-graders",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo for Growth Marketing Studios diagnostic graders (HIPAA, AEO, and future verticals)",
+  "scripts": {
+    "dev:hipaa": "pnpm --filter @gms/hipaa-auditor dev",
+    "dev:aeo": "pnpm --filter @gms/aeo-auditor dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec rm -rf node_modules dist .vite"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "author": "Fermin Fleites <ferminius@growthmarketingstudios.com>",
+  "license": "UNLICENSED"
+}

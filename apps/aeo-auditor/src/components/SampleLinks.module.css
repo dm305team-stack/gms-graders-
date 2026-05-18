@@ -1,0 +1,26 @@
+.sampleLinks {
+  text-align: center;
+  margin-top: 56px;
+  display: flex;
+  gap: 36px;
+  justify-content: center;
+  animation: rise 0.9s 0.75s ease both;
+}
+.sampleLinks a {
+  color: var(--accent-blue);
+  font-size: 14px;
+  border-bottom: 1px solid rgba(31, 58, 95, 0.3);
+  padding-bottom: 2px;
+  transition: all 0.2s;
+}
+.sampleLinks a:hover {
+  color: var(--accent-rust);
+  border-color: var(--accent-rust);
+}
+
+@media (max-width: 720px) {
+  .sampleLinks {
+    flex-direction: column;
+    gap: 14px;
+  }
+}

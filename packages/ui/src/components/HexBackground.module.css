@@ -1,0 +1,13 @@
+.hexBg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: url('../assets/bg-honeycomb.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 35%, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.55) 60%, rgba(0, 0, 0, 0.85) 100%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 35%, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.55) 60%, rgba(0, 0, 0, 0.85) 100%);
+}

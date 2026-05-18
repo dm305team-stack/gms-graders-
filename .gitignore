@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vite/
+
+# Env files — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Debug artifacts
+.playwright-mcp/
+/aeo-*.png
+
+# Grader runtime data (rendered reports, in-memory job artifacts)
+.aeo-data/
+.hpx-data/
+
+# OS
+.DS_Store

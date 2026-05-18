@@ -1,0 +1,49 @@
+/* ============================================================
+   GMS Design Tokens — shared by every grader.
+
+   Warm-paper visual system: Fraunces display, DM Sans body,
+   JetBrains Mono labels, navy + rust + orange accents.
+
+   Import once at the app entry:
+     import "@gms/ui/styles/tokens.css";
+   ============================================================ */
+
+:root {
+  /* ---------- Surfaces ---------- */
+  --bg: #f6f3ee;
+  --bg-card: #ffffff;
+  --bg-muted: #efeae2;
+  --bg-input: #fdfcfa;
+
+  /* ---------- Ink ---------- */
+  --ink: #0e1116;
+  --ink-soft: #2c2f36;
+  --ink-mute: #6b6e76;
+
+  /* ---------- Borders ---------- */
+  --border: #e2dcd2;
+  --border-strong: #c9c1b3;
+
+  /* ---------- Accents ---------- */
+  --accent-blue: #1f3a5f;
+  --accent-rust: #b04a26;
+  --accent-orange: #e25a1f;
+  --accent-pin: #d6502c;
+
+  /* Gradient signature, used on rules and accent bars. */
+  --grad: linear-gradient(90deg, #1f3a5f 0%, #5a3a3a 50%, #e25a1f 100%);
+
+  /* ---------- Elevation ---------- */
+  --shadow-card:
+    0 1px 0 rgba(0, 0, 0, 0.02),
+    0 10px 40px rgba(20, 24, 40, 0.08),
+    0 30px 80px rgba(20, 24, 40, 0.06);
+  --shadow-btn:
+    0 8px 24px rgba(226, 90, 31, 0.32),
+    0 2px 6px rgba(31, 58, 95, 0.18);
+
+  /* ---------- Typography ---------- */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}

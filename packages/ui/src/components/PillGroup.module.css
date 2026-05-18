@@ -1,0 +1,38 @@
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.boxed {
+  padding: 10px 22px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.sep {
+  color: var(--border-strong);
+  font-size: 10px;
+  user-select: none;
+}
+
+@media (max-width: 720px) {
+  .boxed {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .sep {
+    display: none;
+  }
+}

@@ -1,0 +1,216 @@
+.formCard {
+  margin: 56px auto 0;
+  animation: rise 0.9s 0.55s ease both;
+}
+
+.fieldGroup {
+  margin-bottom: 28px;
+}
+.fieldGroupFlush {
+  margin-bottom: 0;
+}
+.fieldGroupSpaced {
+  margin-top: 28px;
+  margin-bottom: 28px;
+}
+
+.fieldHelp {
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin: -3px 0 12px;
+  line-height: 1.45;
+}
+.fieldHelp em {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.socialRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 6px;
+}
+.socialRowSpaced {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+.subLabel {
+  font-size: 10px;
+}
+
+.sectionRule {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 32px 0 28px;
+}
+
+.deliveryNote {
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-bottom: 24px;
+}
+.deliveryNote strong {
+  color: var(--ink-soft);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.checkboxRow {
+  margin: 24px 0;
+}
+
+.deliveryTag {
+  text-align: center;
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+@media (max-width: 720px) {
+  .fieldRow,
+  .socialRow,
+  .socialRowSpaced {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Submit error -------------------------------------------------------- */
+.submitError {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(176, 74, 38, 0.08);
+  border: 1px solid rgba(176, 74, 38, 0.3);
+  color: var(--accent-rust);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.submitError ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* ---- Progress / result panel -------------------------------------------- */
+.statusPanel {
+  text-align: center;
+  padding: 16px 8px 8px;
+  animation: fadeIn 0.4s ease both;
+}
+.statusEyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-rust);
+  margin-bottom: 10px;
+}
+.statusTitle {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.statusText {
+  font-size: 14px;
+  color: var(--ink-mute);
+  margin: 8px auto 0;
+  max-width: 38ch;
+  line-height: 1.55;
+}
+.statusId {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.stageRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent-orange);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.scoreGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 22px 0 6px;
+}
+.scoreCell {
+  padding: 12px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+.scoreCell span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.scoreCell strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--accent-orange);
+}
+
+.reportLink {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 11px 22px;
+  border-radius: 8px;
+  background: var(--grad);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: var(--shadow-btn);
+}
+
+.statusPanelError .statusTitle {
+  color: var(--accent-rust);
+}
+
+@media (max-width: 720px) {
+  .scoreGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

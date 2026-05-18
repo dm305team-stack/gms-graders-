@@ -1,0 +1,5 @@
+.scopeGroup {
+  margin: 40px auto 0;
+  max-width: 780px;
+  animation: rise 0.9s 0.4s ease both;
+}

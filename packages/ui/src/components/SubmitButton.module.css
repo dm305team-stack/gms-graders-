@@ -1,0 +1,31 @@
+.submitBtn {
+  width: 100%;
+  padding: 18px 24px;
+  background: var(--accent-orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 10px;
+  box-shadow: var(--shadow-btn);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px rgba(226, 90, 31, 0.36), 0 4px 10px rgba(31, 58, 95, 0.22);
+}
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.arrow {
+  transition: transform 0.2s;
+}
+.submitBtn:hover:not(:disabled) .arrow {
+  transform: translateX(4px);
+}

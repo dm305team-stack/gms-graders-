@@ -1,0 +1,17 @@
+.strip {
+  position: relative;
+  z-index: 2;
+  margin-top: 80px;
+  padding: 24px 32px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.accent {
+  color: var(--accent-pin);
+  font-weight: 600;
+}

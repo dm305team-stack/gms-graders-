@@ -1,0 +1,13 @@
+.fieldLabel {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.req {
+  color: var(--accent-rust);
+  margin-left: 2px;
+}

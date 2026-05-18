@@ -1,0 +1,6 @@
+.topRule {
+  position: relative;
+  z-index: 2;
+  height: 3px;
+  background: var(--grad);
+}

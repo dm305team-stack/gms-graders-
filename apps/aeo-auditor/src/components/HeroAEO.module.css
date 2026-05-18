@@ -1,0 +1,42 @@
+.heroTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: 'opsz' 144, 'SOFT' 30;
+  font-size: clamp(38px, 6.2vw, 84px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  text-align: center;
+  max-width: 1000px;
+  margin: 0 auto;
+  color: var(--ink);
+  animation: rise 0.9s 0.1s ease both;
+}
+.accentBlue {
+  color: var(--accent-blue);
+  font-style: italic;
+  font-weight: 500;
+}
+.accentGrad {
+  background: linear-gradient(90deg, #4a4744 0%, #8b3e22 45%, #e25a1f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  text-align: center;
+  max-width: 720px;
+  margin: 32px auto 0;
+  animation: rise 0.9s 0.25s ease both;
+}
+.subtitle em {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--ink);
+}
