@@ -43,7 +43,10 @@ export class OpenAIClient extends BaseLLMClient {
       const response = await this.client.chat.completions.create({
         model,
         messages,
-        max_tokens: request.maxTokens ?? 4096,
+        // GPT-5 models require max_completion_tokens (not max_tokens) and
+        // spend reasoning tokens from the same budget, so keep a floor of 8000
+        // to avoid empty completions.
+        max_completion_tokens: Math.max(8000, request.maxTokens ?? 4096),
         temperature: request.temperature ?? 0.3,
         response_format: request.jsonMode ? { type: 'json_object' } : undefined,
       });

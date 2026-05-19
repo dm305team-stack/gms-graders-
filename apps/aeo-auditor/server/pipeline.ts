@@ -282,12 +282,25 @@ async function runRealStages(
   return extractJson<SynthesizeOutput>(synthResp.content);
 }
 
-/** Build one client per engine, skipping engines whose API key is missing. */
+/**
+ * Build one client per engine.
+ *
+ * Perplexity is opt-in: it is only attempted when PERPLEXITY_API_KEY is set
+ * AND ENABLE_PERPLEXITY === 'true'. When not enabled it is skipped silently,
+ * with no client constructed and no error log. The other three engines are
+ * always attempted; a genuinely missing key is logged.
+ */
 function buildEngineClients(
   log: (m: string) => void,
 ): Partial<Record<EngineId, ReturnType<typeof createClient>>> {
   const clients: Partial<Record<EngineId, ReturnType<typeof createClient>>> = {};
   for (const engine of ENGINE_IDS) {
+    if (engine === 'perplexity') {
+      const enabled =
+        Boolean(process.env.PERPLEXITY_API_KEY) &&
+        process.env.ENABLE_PERPLEXITY === 'true';
+      if (!enabled) continue;
+    }
     try {
       clients[engine] = createClient(engine);
     } catch (err) {

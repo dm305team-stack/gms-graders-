@@ -39,6 +39,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   // ---- Google Gemini ----
   'gemini-3.1-pro':          { inputPerMtok: 2, outputPerMtok: 12 },
   'gemini-3-pro':            { inputPerMtok: 2, outputPerMtok: 12 },
+  'gemini-2.5-pro':          { inputPerMtok: 1.25, outputPerMtok: 10 },
   'gemini-3-flash':          { inputPerMtok: 0.3, outputPerMtok: 1.5 },
 
   // ---- Perplexity ----
@@ -95,6 +96,6 @@ export function supportsCaching(model: string): boolean {
 export const DEFAULT_MODELS: Record<EngineId, string> = {
   claude: 'claude-sonnet-4-6',
   openai: 'gpt-5.2',
-  gemini: 'gemini-3-pro',
+  gemini: 'gemini-2.5-pro',
   perplexity: 'sonar-pro',
 };

@@ -1,7 +1,7 @@
 /**
  * @gms/llm — Google Gemini client
  *
- * Default: gemini-3-pro. Para uso ligero (parsing), gemini-3-flash.
+ * Default: gemini-2.5-pro. Para uso ligero (parsing), gemini-3-flash.
  */
 
 import {
