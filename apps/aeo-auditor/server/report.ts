@@ -55,6 +55,33 @@ const TRAJECTORY_LABELS: Record<string, string> = {
 /** Donut palette: brand-adjacent neutrals for competitor segments. */
 const DONUT_COLORS = ['#1f3a5f', '#b04a26', '#6e7fb5', '#5a3a3a', '#9a8c74', '#c9c1b3'];
 
+/** GMS contact line for the report CTA. */
+const GMS_PHONE = '+1 (786) 929-5079';
+
+/** Surface-level fixes. Real, but they do not close the gap on their own. */
+const RECOMMENDATIONS: Array<{ title: string; body: string }> = [
+  {
+    title: 'Answer real customer questions on your site',
+    body: 'AI engines quote pages that answer a question directly. Add an FAQ that covers the questions your customers actually ask, in plain language.',
+  },
+  {
+    title: 'Add structured data to every page',
+    body: 'Mark up your site with Schema.org types so engines can parse it. Without structured data, your pages are guesswork to an AI engine.',
+  },
+  {
+    title: 'Make your name and details identical everywhere',
+    body: 'Your business name, address, and phone should match exactly across every directory and your own site. Mismatches make engines drop you.',
+  },
+  {
+    title: 'Grow reviews on the platforms engines cite',
+    body: 'Ask every satisfied customer for a review on the sites engines trust. Review volume is a signal engines lean on when they decide who to recommend.',
+  },
+  {
+    title: 'Publish one focused page per service',
+    body: 'A page that answers a single service question beats a catch-all services page. Engines cite the specific page, not the general one.',
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -201,11 +228,11 @@ function coverSection(analysis: Analysis, synthesis: SynthesizeOutput, avg: numb
         <div class="cover-score-meta">
           <div class="cover-score-num">${avg}<span>/100</span></div>
           <div class="cover-grade" style="color:${scoreColor(avg, 100)}">${esc(grade)}</div>
-          <div class="cover-verdict">
+          <div class="cover-verdict ${meets ? '' : 'cover-verdict--low'}">
             ${
               meets
                 ? `${esc(input.brand)} meets the industry visibility standard across the engines tested.`
-                : `${esc(input.brand)} sits ${INDUSTRY_BENCHMARK - avg} points below the ${INDUSTRY_BENCHMARK}/100 industry standard.`
+                : 'Your score is below industry standards. AI engines run into obstacles when recommending you.'
             }
           </div>
         </div>
@@ -394,20 +421,40 @@ function methodologySection(analysis: Analysis): string {
   return `<section class="section">
     ${sectionHead('Methodology', 'How this audit was produced.')}
     <ul class="method-list">
-      <li><strong>Queries.</strong> We generated ${stats?.queries ?? 0} patient-style search queries that never name your brand, then ran each one against all 4 engines.</li>
+      <li><strong>Queries.</strong> We generated ${stats?.queries ?? 0} customer-style search queries that never name your brand, then ran each one against all 4 engines.</li>
       <li><strong>Engines.</strong> ChatGPT (GPT-5.2), Perplexity (Sonar Pro), Gemini (Gemini 3 Pro), and Claude (Claude Sonnet 4.6). HubSpot's grader tests 3. We test 4, because Claude carries real weight in professional and B2B search.</li>
       <li><strong>Scoring.</strong> Each engine answer is parsed for brand mentions, position, sentiment, competitors, and cited sources. Scores roll up into the five components on the scorecard.</li>
       <li><strong>Limits.</strong> This is a diagnostic snapshot, not a guarantee of placement. Engine answers vary between runs.</li>
     </ul>
+  </section>`;
+}
+
+function recommendationsSection(): string {
+  const recs = RECOMMENDATIONS.map(
+    (r, i) => `<li class="rec">
+      <span class="rec-num">${i + 1}</span>
+      <div>
+        <div class="rec-title">${esc(r.title)}</div>
+        <div class="rec-body">${esc(r.body)}</div>
+      </div>
+    </li>`,
+  ).join('');
+
+  return `<section class="section">
+    ${sectionHead('Where to Start', 'Five surface-level fixes that move AI visibility. They get you off the floor. They do not close the gap on their own.')}
+    <ol class="rec-list">${recs}</ol>
 
     <div class="cta">
-      <div class="cta-kicker">Next step</div>
-      <h2>This audit shows the gap. Closing it is the work.</h2>
-      <p>AI engines now sit between your practice and the patients searching for you.
-         The fixes that move these scores are structured data, authority sourcing,
-         review velocity, and content the engines actually cite. That is what a GMS
-         AEO retainer executes. Book a 20-minute walkthrough of these findings with a
-         GMS specialist.</p>
+      <div class="cta-kicker">The complete fix</div>
+      <h2>These five get you started. GMS finishes the job.</h2>
+      <p>Surface fixes lift a score a few points. Closing the gap to the
+         ${INDUSTRY_BENCHMARK}/100 standard takes ongoing work: authority sourcing,
+         content the engines actually cite, review velocity, and monitoring across
+         all 4 engines. That is what a GMS AEO retainer runs for you.</p>
+      <div class="cta-call">
+        <span>Call GMS to fix your visibility completely</span>
+        <a href="tel:+17869295079">${GMS_PHONE}</a>
+      </div>
       <div class="cta-mark">Growth Marketing Studios<span class="dot-accent"></span></div>
     </div>
   </section>`;
@@ -454,7 +501,7 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
       -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   html, body { background:var(--bg); }
   body { font-family:'DM Sans',sans-serif; color:var(--ink);
-         font-size:13.5px; line-height:1.55; }
+         font-size:15.5px; line-height:1.55; }
   h1,h2 { font-family:'Fraunces',Georgia,serif; font-weight:600; }
   .muted { color:var(--ink-mute); }
 
@@ -467,54 +514,55 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
   .bar-fill { display:block; height:100%; }
 
   .sec-head { margin-bottom:26px; }
-  .sec-head h2 { font-size:27px; }
+  .sec-head h2 { font-size:29px; }
   .sec-head p { color:var(--ink-mute); margin-top:7px; max-width:64ch; }
 
   /* ---- cover ---- */
   .cover { padding:0; display:flex; flex-direction:column; }
   .cover-band { background:var(--navy); color:#f6f3ee; padding:30px 0.66in 26px; }
-  .kicker { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em;
+  .kicker { font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:.18em;
             text-transform:uppercase; opacity:.72; }
-  .cover-product { font-family:'Fraunces',serif; font-size:23px; font-weight:600; margin-top:6px; }
+  .cover-product { font-family:'Fraunces',serif; font-size:25px; font-weight:600; margin-top:6px; }
   .cover-body { padding:48px 0.66in 0; flex:1; }
-  .cover-body h1 { font-size:44px; line-height:1.08; letter-spacing:-0.01em; }
-  .cover-scope { color:var(--ink-soft); margin-top:14px; font-size:16px; }
-  .cover-domain { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--ink-mute); }
+  .cover-body h1 { font-size:46px; line-height:1.08; letter-spacing:-0.01em; }
+  .cover-scope { color:var(--ink-soft); margin-top:14px; font-size:18px; }
+  .cover-domain { font-family:'JetBrains Mono',monospace; font-size:15px; color:var(--ink-mute); }
   .benchmark { margin-top:26px; padding:13px 18px; border-radius:8px;
-               background:var(--navy); color:#f6f3ee; font-weight:500; font-size:14px;
+               background:var(--navy); color:#f6f3ee; font-weight:500; font-size:16px;
                display:inline-block; }
   .cover-score { display:flex; align-items:center; gap:30px; margin-top:34px;
                  padding:28px 32px; background:var(--card); border:1px solid var(--border);
                  border-radius:14px; }
-  .cover-score-num { font-family:'Fraunces',serif; font-size:46px; font-weight:600; color:var(--navy); }
-  .cover-score-num span { font-size:19px; color:var(--ink-mute); }
-  .cover-grade { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600;
+  .cover-score-num { font-family:'Fraunces',serif; font-size:48px; font-weight:600; color:var(--navy); }
+  .cover-score-num span { font-size:21px; color:var(--ink-mute); }
+  .cover-grade { font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600;
                  text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
   .cover-verdict { margin-top:10px; color:var(--ink-soft); max-width:42ch; }
+  .cover-verdict--low { color:var(--rust); font-weight:600; }
   .cover-position { margin-top:30px; padding:22px 26px; background:var(--navy);
-                    color:#f1ede6; border-radius:12px; font-size:15px; line-height:1.6; }
+                    color:#f1ede6; border-radius:12px; font-size:17px; line-height:1.6; }
   .cover-foot { padding:22px 0.66in; font-family:'JetBrains Mono',monospace;
-                font-size:11px; color:var(--ink-mute); letter-spacing:.04em; }
+                font-size:13px; color:var(--ink-mute); letter-spacing:.04em; }
 
   /* ---- scorecard ---- */
   .scorecard { display:grid; grid-template-columns:1.15fr repeat(4,1fr);
                border:1px solid var(--border); border-radius:12px; overflow:hidden;
                background:var(--card); }
-  .sc-rowlabel { padding:13px 16px; font-size:12px; font-weight:500; color:var(--ink-soft);
+  .sc-rowlabel { padding:13px 16px; font-size:14px; font-weight:500; color:var(--ink-soft);
                  background:var(--muted-bg); border-bottom:1px solid var(--border);
                  display:flex; align-items:center; }
   .sc-corner { background:var(--navy); }
   .sc-engine { padding:13px 12px; text-align:center; border-bottom:1px solid var(--border);
                border-left:1px solid var(--border); background:var(--navy); color:#f6f3ee; }
-  .sc-engine-name { font-family:'Fraunces',serif; font-size:17px; font-weight:600; }
-  .sc-engine-model { font-family:'JetBrains Mono',monospace; font-size:9.5px;
+  .sc-engine-name { font-family:'Fraunces',serif; font-size:19px; font-weight:600; }
+  .sc-engine-model { font-family:'JetBrains Mono',monospace; font-size:11.5px;
                      opacity:.7; margin-top:2px; }
   .sc-cell { padding:13px 14px; border-bottom:1px solid var(--border);
              border-left:1px solid var(--border); }
   .sc-gauge { display:flex; justify-content:center; padding:14px; }
-  .sc-val { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600;
+  .sc-val { font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:600;
             margin-bottom:6px; }
-  .sc-val span { color:var(--ink-mute); font-size:11px; }
+  .sc-val span { color:var(--ink-mute); font-size:13px; }
   .scorecard > div:nth-last-child(-n+5) { border-bottom:none; }
 
   /* ---- engine cards (recognition / competition / perception) ---- */
@@ -522,19 +570,19 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
   .ecard { background:var(--card); border:1px solid var(--border); border-radius:12px;
            padding:18px 16px; }
   .ecard-empty { opacity:.65; }
-  .ecard-name { font-family:'Fraunces',serif; font-size:17px; font-weight:600; }
-  .ecard-score { font-family:'Fraunces',serif; font-size:33px; font-weight:600; margin-top:8px; }
-  .ecard-score span { font-size:14px; color:var(--ink-mute); }
-  .ecard-sub { font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.08em;
+  .ecard-name { font-family:'Fraunces',serif; font-size:19px; font-weight:600; }
+  .ecard-score { font-family:'Fraunces',serif; font-size:35px; font-weight:600; margin-top:8px; }
+  .ecard-score span { font-size:16px; color:var(--ink-mute); }
+  .ecard-sub { font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.08em;
                text-transform:uppercase; color:var(--ink-mute); margin-bottom:10px; }
   .ecard-dl { margin-top:14px; }
-  .ecard-dl dt { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.07em;
+  .ecard-dl dt { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.07em;
                  text-transform:uppercase; color:var(--ink-mute); margin-top:11px; }
-  .ecard-dl dd { font-size:13.5px; font-weight:500; margin-top:2px; }
+  .ecard-dl dd { font-size:15.5px; font-weight:500; margin-top:2px; }
 
   .donut-wrap { display:flex; justify-content:center; margin:8px 0 12px; }
   .legend { list-style:none; }
-  .legend li { display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:4px; }
+  .legend li { display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:4px; }
   .dot { width:8px; height:8px; border-radius:2px; flex:none; }
   .leg-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .leg-pct { font-family:'JetBrains Mono',monospace; color:var(--ink-mute); }
@@ -543,22 +591,22 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
   .src-list li { padding:9px 0; border-bottom:1px solid var(--border); }
   .src-list li:last-child { border-bottom:none; }
   .src-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-  .src-name { font-weight:600; font-size:12.5px; }
-  .src-score { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px; }
-  .src-note { font-size:11.5px; color:var(--ink-mute); margin-top:3px; }
+  .src-name { font-weight:600; font-size:14.5px; }
+  .src-score { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:16px; }
+  .src-note { font-size:13.5px; color:var(--ink-mute); margin-top:3px; }
 
   /* ---- summary ---- */
   .summary-trajectory { display:flex; align-items:center; gap:14px; margin-bottom:20px;
                         padding:14px 20px; background:var(--card); border:1px solid var(--border);
                         border-radius:10px; }
-  .summary-trajectory span { font-family:'JetBrains Mono',monospace; font-size:10px;
+  .summary-trajectory span { font-family:'JetBrains Mono',monospace; font-size:12px;
                              letter-spacing:.1em; text-transform:uppercase; color:var(--ink-mute); }
-  .summary-trajectory strong { font-family:'Fraunces',serif; font-size:20px; font-weight:600;
+  .summary-trajectory strong { font-family:'Fraunces',serif; font-size:22px; font-weight:600;
                                color:var(--navy); }
   .two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
   .panel { background:var(--card); border:1px solid var(--border); border-radius:12px;
            padding:22px 24px; }
-  .panel h3 { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em;
+  .panel h3 { font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:.08em;
               text-transform:uppercase; margin-bottom:12px; color:var(--ink-soft); }
   .marked { list-style:none; }
   .marked li { padding:9px 0 9px 20px; position:relative; border-bottom:1px solid var(--border); }
@@ -571,22 +619,35 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
   /* ---- contextual ---- */
   .themes { display:flex; flex-wrap:wrap; gap:10px; }
   .theme-chip { background:var(--card); border:1px solid var(--border); border-radius:8px;
-                padding:11px 16px; font-size:14px; font-weight:500; }
+                padding:11px 16px; font-size:16px; font-weight:500; }
 
   /* ---- methodology + cta ---- */
   .method-list { list-style:none; }
   .method-list li { padding:12px 0 12px 18px; position:relative; border-bottom:1px solid var(--border);
-                    font-size:13.5px; color:var(--ink-soft); }
+                    font-size:15.5px; color:var(--ink-soft); }
   .method-list li::before { content:""; position:absolute; left:0; top:18px; width:7px; height:7px;
                             border-radius:2px; background:var(--navy); }
   .method-list strong { color:var(--ink); }
+  .rec-list { list-style:none; }
+  .rec { display:flex; gap:15px; padding:15px 0; border-bottom:1px solid var(--border); }
+  .rec:last-child { border-bottom:none; }
+  .rec-num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--navy);
+             color:#f6f3ee; font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:17px;
+             display:flex; align-items:center; justify-content:center; }
+  .rec-title { font-weight:700; font-size:16.5px; }
+  .rec-body { font-size:15px; color:var(--ink-mute); margin-top:3px; line-height:1.55; }
   .cta { margin-top:30px; padding:32px 34px; background:var(--grad); color:#fff;
          border-radius:14px; }
-  .cta-kicker { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em;
+  .cta-kicker { font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:.16em;
                 text-transform:uppercase; opacity:.85; }
-  .cta h2 { font-size:25px; margin:8px 0 10px; color:#fff; }
-  .cta p { font-size:14px; line-height:1.65; opacity:.95; max-width:62ch; }
-  .cta-mark { margin-top:20px; font-family:'Fraunces',serif; font-size:17px; font-weight:600; }
+  .cta h2 { font-size:27px; margin:8px 0 10px; color:#fff; }
+  .cta p { font-size:16px; line-height:1.65; opacity:.95; max-width:62ch; }
+  .cta-call { margin-top:18px; padding:14px 20px; border-radius:10px;
+              background:rgba(255,255,255,0.15); }
+  .cta-call span { font-size:14.5px; opacity:.9; }
+  .cta-call a { display:block; margin-top:3px; font-family:'Fraunces',Georgia,serif;
+                font-size:27px; font-weight:600; color:#fff; }
+  .cta-mark { margin-top:20px; font-family:'Fraunces',serif; font-size:19px; font-weight:600; }
   .dot-accent { display:inline-block; width:7px; height:7px; border-radius:50%;
                 background:#fff; margin-left:3px; vertical-align:middle; }
 </style>
@@ -600,6 +661,7 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
   ${contextualSection(synthesis)}
   ${perceptionSection(synthesis)}
   ${methodologySection(analysis)}
+  ${recommendationsSection()}
 </body>
 </html>`;
 }
@@ -607,6 +669,8 @@ export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput
 /** Compact branded HTML used as the email body. American English. */
 export function renderEmailHtml(analysis: Analysis, synthesis: SynthesizeOutput): string {
   const { input } = analysis;
+  const contact = analysis.contact;
+  const fullName = contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'there';
   const avg = averageScore(synthesis);
   const grade = GRADE_LABELS[synthesis.summary.overall_grade] ?? synthesis.summary.overall_grade;
   const scores = extractOverallScores(synthesis);
@@ -627,16 +691,19 @@ export function renderEmailHtml(analysis: Analysis, synthesis: SynthesizeOutput)
     </div>
     <h1 style="font-size:24px;margin:10px 0 6px;">Your audit for ${esc(input.brand)} is ready</h1>
     <p style="color:#6b6e76;font-size:14px;margin:0 0 20px;">
-      Hi ${esc(input.contact.name)}, here is how the 4 major AI engines describe
+      Hi ${esc(fullName)}, here is how the major AI engines describe
       ${esc(input.brand)} (${esc(input.domain)}).
     </p>
     <div style="text-align:center;padding:18px;background:#efeae2;border-radius:10px;margin-bottom:14px;">
       <div style="font-size:44px;font-weight:700;color:#1f3a5f;line-height:1;">${avg}<span style="font-size:16px;color:#6b6e76;">/100</span></div>
       <div style="font-family:monospace;font-size:12px;margin-top:4px;">Overall grade: ${esc(grade)}</div>
     </div>
-    <p style="font-size:13px;color:#6b6e76;margin:0 0 16px;text-align:center;">
-      Scores above 75/100 meet industry visibility standards.
-      ${meets ? `${esc(input.brand)} clears that bar.` : `${esc(input.brand)} is ${75 - avg} points short.`}
+    <p style="font-size:13px;margin:0 0 16px;text-align:center;color:${meets ? '#6b6e76' : '#b04a26'};">
+      ${
+        meets
+          ? 'Scores above 75/100 meet industry visibility standards. Your brand clears that bar.'
+          : 'Your score is below industry standards. AI engines run into obstacles when recommending you.'
+      }
     </p>
     <table style="border-collapse:collapse;width:100%;margin-bottom:20px;"><tr>${scoreRow}</tr></table>
     <p style="font-size:14px;line-height:1.6;">

@@ -14,9 +14,13 @@ export function HeroAEO({ lead }: HeroAEOProps) {
         <span className={s.accentGrad}>AI search</span> right now.
       </h1>
       <p className={s.subtitle}>
-        A <em>forensic, source-cited</em> AEO visibility audit, benchmarked against
-        ChatGPT, Perplexity, Gemini, and Claude. One scan. Four engines. Real
-        share-of-voice, real citations, real competitors.
+        Growth Marketing Studios&apos; free AEO Grader is a{' '}
+        <em>forensic, source-cited</em> visibility audit that shows how leading
+        AI engines like ChatGPT, Perplexity, Claude, and Gemini perceive and
+        describe your brand based on their training data. One scan. Four
+        engines. Five dimensions of brand perception, with real share-of-voice,
+        real citations, and real competitors, all delivered with a clear,
+        straightforward interpretation of the results.
       </p>
     </>
   );

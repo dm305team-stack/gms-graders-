@@ -34,9 +34,8 @@ import {
   type SynthesizeOutput,
 } from '@gms/llm';
 
-import { sendReportEmail } from './email.js';
 import { renderPdf } from './pdf.js';
-import { renderEmailHtml, renderReportHtml, extractOverallScores } from './report.js';
+import { renderReportHtml, extractOverallScores } from './report.js';
 import type { Analysis, EngineLabel } from './types.js';
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -54,6 +53,12 @@ const ENGINE_LABEL: Record<EngineId, EngineLabel> = {
 };
 const ENGINE_IDS: EngineId[] = ['openai', 'perplexity', 'gemini', 'claude'];
 const REPORT_LABELS: EngineLabel[] = ['chatgpt', 'perplexity', 'gemini', 'claude'];
+
+/**
+ * Org type passed to the query and synthesis prompts. The 5-field scope form
+ * no longer collects it; "other" is the neutral default the form always used.
+ */
+const ORG_TYPE = 'other';
 
 /** Tolerant JSON extraction from an LLM response (handles ``` fences and prose). */
 function extractJson<T>(text: string): T {
@@ -95,18 +100,8 @@ export async function runPipeline(analysis: Analysis): Promise<void> {
     analysis.pdf_path = pdfPath;
     log(`PDF rendered (${(fs.statSync(pdfPath).size / 1024).toFixed(0)} KB)`);
 
-    analysis.status = 'emailing';
-    log(`-> emailing report to ${analysis.input.contact.email}`);
-    analysis.email = await sendReportEmail({
-      to: analysis.input.contact.email,
-      fullName: analysis.input.contact.name,
-      brand: analysis.input.brand,
-      domain: analysis.input.domain,
-      analysisId: analysis.analysis_id,
-      emailHtml: renderEmailHtml(analysis, synthesis),
-      pdfPath,
-    });
-
+    // No email here. Delivery happens at the unlock gate (POST /unlock),
+    // once the visitor leaves contact details.
     analysis.status = 'done';
     analysis.finished_at = new Date().toISOString();
     log(`done in ${Math.round((Date.now() - analysis._t0) / 1000)}s`);
@@ -147,7 +142,7 @@ async function runRealStages(
           domain: input.domain,
           location: input.location,
           specialty: input.specialty,
-          org_type: input.org_type,
+          org_type: ORG_TYPE,
           bilingual: true,
         }),
       },
@@ -282,7 +277,7 @@ REMINDER: The output format remains valid JSON only, exactly as specified above.
           domain: input.domain,
           location: input.location,
           specialty: input.specialty,
-          org_type: input.org_type,
+          org_type: ORG_TYPE,
           engine_results: engineResults,
         }),
       },

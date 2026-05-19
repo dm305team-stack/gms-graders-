@@ -107,6 +107,14 @@
   padding-left: 18px;
 }
 
+/* ---- Contact gate ------------------------------------------------------- */
+.gateIntro {
+  font-size: 14px;
+  color: var(--ink-mute);
+  margin: 8px 0 24px;
+  line-height: 1.55;
+}
+
 /* ---- Progress / result panel -------------------------------------------- */
 .statusPanel {
   text-align: center;
@@ -191,6 +199,21 @@
   font-size: 24px;
   font-weight: 600;
   color: var(--accent-orange);
+}
+
+.statusVerdict,
+.statusVerdictLow {
+  margin: 16px auto 0;
+  max-width: 40ch;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.statusVerdict {
+  color: var(--ink-soft);
+}
+.statusVerdictLow {
+  color: var(--accent-rust);
+  font-weight: 600;
 }
 
 .reportLink {

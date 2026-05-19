@@ -1,0 +1,141 @@
+.wrap {
+  animation: rise 0.6s ease both;
+}
+
+/* ---- intro ---- */
+.intro {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-rust);
+  margin-bottom: 8px;
+}
+.introTitle {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.introText {
+  font-size: 14px;
+  color: var(--ink-mute);
+  margin: 8px auto 0;
+  max-width: 48ch;
+  line-height: 1.55;
+}
+
+/* ---- the real report, cover sharp + rest blurred ---- */
+.docFrame {
+  position: relative;
+  width: 100%;
+  height: 1100px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  background: var(--bg);
+}
+/*
+ * The report pages are letter-width and tall. The iframe is rendered wide,
+ * then scaled down so one scaled letter page fills the card width. The cover
+ * shows sharp; sections below are blurred from inside the document.
+ */
+.doc {
+  border: 0;
+  display: block;
+  width: 154%;
+  height: 2640px;
+  transform: scale(0.65);
+  transform-origin: top left;
+  pointer-events: none;
+}
+.docNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 14px;
+  color: var(--ink-mute);
+}
+.fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 220px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg-card));
+  pointer-events: none;
+}
+
+/* ---- inline unlock gate ---- */
+.gate {
+  position: relative;
+  z-index: 2;
+  padding: 24px 26px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+.gateHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.lock {
+  font-size: 22px;
+  flex: none;
+  line-height: 1.2;
+}
+.gateTitle {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.gateSub {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.gateField {
+  margin-bottom: 18px;
+}
+.gateRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.gateFieldFlush {
+  margin-bottom: 0;
+}
+
+.gateError {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(176, 74, 38, 0.08);
+  border: 1px solid rgba(176, 74, 38, 0.3);
+  color: var(--accent-rust);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .gateRow {
+    grid-template-columns: 1fr;
+  }
+  .docFrame {
+    height: 820px;
+  }
+}

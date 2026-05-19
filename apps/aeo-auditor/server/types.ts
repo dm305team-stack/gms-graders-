@@ -4,6 +4,9 @@
  * Phase 1 keeps analysis state in memory (no Supabase yet), mirroring the
  * pattern used by the HIPAA grader's hpx-api. The aeo.sql schema describes
  * the eventual persisted shape; this is the runtime subset the server needs.
+ *
+ * The funnel is two-step: the scope form (RunAnalysisInput) starts the audit;
+ * the unlock gate (UnlockInput) captures the lead and triggers delivery.
  */
 
 import type { SynthesizeOutput } from '@gms/llm';
@@ -19,26 +22,33 @@ export type AnalysisStatus =
   | 'parsing'
   | 'synthesizing'
   | 'rendering'
-  | 'emailing'
   | 'done'
   | 'failed';
 
-/** Raw form payload posted by AuditForm.tsx. */
-export interface AnalysisInput {
+/** The 5-field scope form posted to POST /api/run-analysis. No contact. */
+export interface RunAnalysisInput {
   domain: string;
   brand: string;
   location: string;
   specialty: string;
-  social: { yt: string; ig: string; tt: string; fb: string };
-  contact: { name: string; company: string; email: string; phone: string };
-  org_type: string;
-  confirm_authorized: boolean;
+  /** Free-text product or service line, from the scope form. */
+  product: string;
+}
+
+/** Contact details captured at the unlock gate, posted to POST /api/analyses/:id/unlock. */
+export interface UnlockInput {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
 }
 
 /** In-memory record for one analysis run. */
 export interface Analysis {
   analysis_id: string;
-  input: AnalysisInput;
+  input: RunAnalysisInput;
+  /** Lead contact, captured at the unlock gate. Absent until the visitor unlocks. */
+  contact?: UnlockInput;
   status: AnalysisStatus;
   created_at: string;
   finished_at?: string;
@@ -54,7 +64,7 @@ export interface Analysis {
   cost_usd?: number;
   /** Engine call counters, for the status payload. */
   stats?: { queries: number; engine_calls: number; engine_errors: number };
-  /** Outcome of the email send step. */
+  /** Outcome of the report email to the visitor, set at unlock. */
   email?: { sent?: boolean; skipped?: boolean; error?: string };
   /** Internal start timestamp (ms), stripped from API responses. */
   _t0: number;
@@ -64,11 +74,10 @@ export interface Analysis {
 export const STAGE_LABELS: Record<AnalysisStatus, string> = {
   queued: 'Queued',
   generating_queries: 'Generating patient search queries',
-  running_engines: 'Querying the 4 AI engines',
+  running_engines: 'Querying the AI engines',
   parsing: 'Extracting structured signal',
   synthesizing: 'Synthesizing the report',
-  rendering: 'Rendering the PDF-ready report',
-  emailing: 'Sending the report by email',
+  rendering: 'Rendering the report',
   done: 'Complete',
   failed: 'Failed',
 };
