@@ -24,6 +24,7 @@ import {
   buildParseResponseUserPrompt,
   SYNTHESIZE_REPORT_PROMPT_V1,
   buildSynthesizeUserPrompt,
+  loadResearchBase,
   type EngineId,
   type EngineReport,
   type GeneratedQuery,
@@ -253,8 +254,26 @@ async function runRealStages(
       .map((p) => ({ query: p.query.query, query_type: p.query.type, parsed: p.parsed })),
   }));
 
+  const researchBase = loadResearchBase();
+
+  const enrichedSystem = `${SYNTHESIZE_REPORT_PROMPT_V1}
+
+---
+
+ADDITIONAL CONTEXT — RESEARCH BASE FOR GROUNDING:
+
+The narrative outputs (narrative_themes, key_strengths, growth_areas, sources_evaluation) must be grounded in the AEO research base below. Reference findings inline using tags like [research: 04-effect-sizes.md §statistics-addition]. Mark claims that cannot be grounded as [INFERENCE - operator review required].
+
+When suggesting growth areas, tie each recommendation to a specific mechanism documented in the research (Structured Data Multiplier, Princeton/GT effect sizes, Evertune brand mentions multiplier, CITABLE framework, GEO-16 pillars).
+
+<aeo_research_base>
+${researchBase}
+</aeo_research_base>
+
+REMINDER: The output format remains valid JSON only, exactly as specified above. The research base informs the content of narrative fields but does not change the JSON schema.`;
+
   const synthResp = await claude.complete({
-    system: SYNTHESIZE_REPORT_PROMPT_V1,
+    system: enrichedSystem,
     messages: [
       {
         role: 'user',
@@ -270,6 +289,7 @@ async function runRealStages(
     ],
     temperature: 0.3,
     maxTokens: 8000,
+    enableCache: true,
   });
   costUsd += synthResp.costUsd;
 

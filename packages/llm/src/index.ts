@@ -86,3 +86,5 @@ export {
   type EngineReport,
   type EngineResults,
 } from './prompts/synthesize.js';
+
+export { loadResearchBase } from './research/loader.js';
