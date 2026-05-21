@@ -5,6 +5,7 @@ import { AuditForm } from './components/AuditForm';
 import { GeoPillsRow, type Geo } from './components/GeoPillsRow';
 import { HeroAEO } from './components/HeroAEO';
 import { SampleLinks } from './components/SampleLinks';
+import { AeoDimensions } from './components/AeoDimensions';
 import { ScopePillsRow } from './components/ScopePillsRow';
 import s from './App.module.css';
 
@@ -44,6 +45,7 @@ export default function App() {
         <ScopePillsRow />
         <AuditForm />
         <SampleLinks />
+        <AeoDimensions />
       </main>
 
       <VectorsStrip lead="The 4 /" highlight="AI engines evaluated" />
