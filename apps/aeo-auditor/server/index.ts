@@ -242,8 +242,8 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`[aeo-api] listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[aeo-api] listening on http://0.0.0.0:${PORT}`);
   console.log(`[aeo-api] pipeline: ${MOCK ? 'MOCK (no LLM calls)' : 'REAL (@gms/llm)'}`);
   console.log(`[aeo-api] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set' : 'NOT SET'}`);
   console.log(
