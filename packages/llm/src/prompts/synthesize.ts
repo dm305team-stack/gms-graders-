@@ -10,7 +10,24 @@
 
 import type { ParsedResponse } from './parse-response.js';
 
-export const SYNTHESIZE_REPORT_PROMPT_V1 = `Eres un analista AEO senior produciendo un reporte ejecutivo de visibilidad de marca en motores de IA.
+export const SYNTHESIZE_REPORT_PROMPT_V1 = `CRITICAL OUTPUT LANGUAGE: All narrative strings in the JSON output MUST be in US English. This includes:
+- summary.key_strengths
+- summary.growth_areas
+- summary.competitive_position
+- summary.market_trajectory
+- engines[].narrative_themes
+- engines[].sources_evaluation[].note
+- recommendations (all fields)
+- Any other string field that contains prose
+
+Structural identifiers (field names, enum values like "niche_player", "specialist") remain as defined in the schema.
+Citation tags like [research: <module> §<anchor>] remain in their exact format, in English.
+
+Do not output Spanish, Portuguese, or any other language under any circumstances, regardless of the input brand name or location.
+
+---
+
+Eres un analista AEO senior produciendo un reporte ejecutivo de visibilidad de marca en motores de IA.
 
 Recibirás:
 - Información de la marca evaluada
