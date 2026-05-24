@@ -13,8 +13,9 @@
   },
   "engines": {
     "node": ">=20",
-    "pnpm": ">=9"
+    "pnpm": ">=9 <11"
   },
+  "packageManager": "pnpm@9.15.4",
   "pnpm": {
     "minimumReleaseAge": 0
   },
