@@ -1,0 +1,41 @@
+# AEO Visibility Auditor — single service, built from the repo on the VPS.
+#
+# On the VPS, from the repo root:
+#   cp apps/aeo-auditor/.env.production.example apps/aeo-auditor/.env
+#   nano apps/aeo-auditor/.env          # fill ANTHROPIC/OPENAI/GEMINI + Resend
+#   docker compose up -d --build
+#
+# The host nginx (deploy/nginx-aeo.conf) terminates TLS and gates /console.html;
+# this container only listens on 127.0.0.1:3334.
+services:
+  aeo-auditor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aeo-auditor:latest
+    container_name: aeo-auditor
+    restart: unless-stopped
+    env_file:
+      - ./apps/aeo-auditor/.env
+    environment:
+      NODE_ENV: production
+      PORT: "3334"
+    # Bind to localhost only; nginx on the host reverse-proxies to it.
+    ports:
+      - "127.0.0.1:3334:3334"
+    volumes:
+      # Persist rendered reports + JSON sidecars across rebuilds/restarts.
+      - aeo-data:/app/apps/aeo-auditor/.aeo-data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3334/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  aeo-data:

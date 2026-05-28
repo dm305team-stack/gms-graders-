@@ -1,0 +1,23 @@
+# Reinstalled / rebuilt inside the image
+**/node_modules
+**/dist
+**/.vite
+
+# Repo metadata
+.git
+.github
+
+# Runtime data and secrets (never bake into the image)
+**/.aeo-data
+**/.hpx-data
+**/.env
+**/.env.*
+!**/.env.production.example
+
+# Noise
+*.log
+**/*.log
+**/*.tsbuildinfo
+.DS_Store
+*.tar.gz
+*.zip

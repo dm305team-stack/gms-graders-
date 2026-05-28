@@ -1,5 +1,8 @@
 # Deploy — AEO Auditor on a Hostinger VPS
 
+> **Using Docker?** See `deploy/HOSTINGER-DOCKER.md`. This file is the bare-metal
+> path (Node + pm2 + nginx on plain Ubuntu).
+
 The AEO Auditor is a single Express process. In production it serves both the
 API and the built React frontend (landing at `/`, operator console at
 `/console.html`) on one port, same-origin. No Vite, no proxy.
