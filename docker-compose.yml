@@ -5,8 +5,9 @@
 #   nano apps/aeo-auditor/.env          # fill ANTHROPIC/OPENAI/GEMINI + Resend
 #   docker compose up -d --build
 #
-# The host nginx (deploy/nginx-aeo.conf) terminates TLS and gates /console.html;
-# this container only listens on 127.0.0.1:3334.
+# The host nginx (deploy/nginx-aeo.conf) terminates TLS and gates /console.html.
+# The app inside the container listens on 0.0.0.0:3334 (see server/index.ts);
+# the host publishes it only on 127.0.0.1:3334, so it isn't exposed publicly.
 services:
   aeo-auditor:
     build:
