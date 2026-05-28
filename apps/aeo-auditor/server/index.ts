@@ -15,6 +15,7 @@
  */
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -23,6 +24,14 @@ import 'dotenv/config';
 import { emailConfigured, sendLeadNotification, sendReportEmail } from './email.js';
 import { runPipeline } from './pipeline.js';
 import { renderEmailHtml } from './report.js';
+import {
+  listAudits,
+  readSidecar,
+  reportPath,
+  toListItem,
+  type AuditListItem,
+  type StoredAnalysis,
+} from './storage.js';
 import { STAGE_LABELS, type Analysis, type RunAnalysisInput, type UnlockInput } from './types.js';
 
 /** ESM has no __dirname; derive it from import.meta.url. */
@@ -114,6 +123,25 @@ function publicView(a: Analysis) {
   };
 }
 
+/** Detail view for the operator console: includes the full synthesis blob. */
+function detailView(a: Analysis | StoredAnalysis) {
+  return {
+    analysis_id: a.analysis_id,
+    input: a.input,
+    status: a.status,
+    stage_label: STAGE_LABELS[a.status],
+    created_at: a.created_at,
+    finished_at: a.finished_at ?? null,
+    error: a.error ?? null,
+    overall_scores: a.overall_scores ?? null,
+    cost_usd: a.cost_usd ?? null,
+    stats: a.stats ?? null,
+    synthesis: a.synthesis ?? null,
+    report_url: a.report_path ? `/api/analyses/${a.analysis_id}/report` : null,
+    pdf_url: a.pdf_path ? `/api/analyses/${a.analysis_id}/report.pdf` : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // HTTP server
 // ---------------------------------------------------------------------------
@@ -164,28 +192,57 @@ app.post('/api/run-analysis', (req, res) => {
   });
 });
 
+/** Operator console: every audit on disk, with live in-memory runs layered on top. */
+app.get('/api/analyses', (_req, res) => {
+  const byId = new Map<string, AuditListItem>();
+  for (const item of listAudits()) byId.set(item.analysis_id, item);
+  for (const a of analyses.values()) {
+    byId.set(a.analysis_id, toListItem(a, 'memory', Boolean(a.contact)));
+  }
+  const items = [...byId.values()].sort((x, y) => (x.created_at < y.created_at ? 1 : -1));
+  res.json({ analyses: items, count: items.length });
+});
+
 app.get('/api/analyses/:id', (req, res) => {
   const analysis = analyses.get(req.params.id);
   if (!analysis) return res.status(404).json({ error: 'analysis not found' });
   res.json(publicView(analysis));
 });
 
+/** Operator console detail: full synthesis from memory, falling back to the sidecar. */
+app.get('/api/analyses/:id/data', (req, res) => {
+  const live = analyses.get(req.params.id);
+  if (live) return res.json(detailView(live));
+  const stored = readSidecar(req.params.id);
+  if (stored) return res.json(detailView(stored));
+  return res.status(404).json({ error: 'analysis not found' });
+});
+
 app.get('/api/analyses/:id/report', (req, res) => {
   const analysis = analyses.get(req.params.id);
-  if (!analysis) return res.status(404).send('analysis not found');
-  if (analysis.status !== 'done' || !analysis.report_path) {
-    return res.status(409).send(`report not ready (status: ${analysis.status})`);
+  if (analysis) {
+    if (analysis.status !== 'done' || !analysis.report_path) {
+      return res.status(409).send(`report not ready (status: ${analysis.status})`);
+    }
+    return res.type('html').sendFile(analysis.report_path);
   }
-  res.type('html').sendFile(analysis.report_path);
+  // Not in memory (server restarted, or legacy report): serve from disk if present.
+  const diskPath = reportPath(req.params.id, 'html');
+  if (fs.existsSync(diskPath)) return res.type('html').sendFile(diskPath);
+  return res.status(404).send('analysis not found');
 });
 
 app.get('/api/analyses/:id/report.pdf', (req, res) => {
   const analysis = analyses.get(req.params.id);
-  if (!analysis) return res.status(404).send('analysis not found');
-  if (analysis.status !== 'done' || !analysis.pdf_path) {
-    return res.status(409).send(`report not ready (status: ${analysis.status})`);
+  if (analysis) {
+    if (analysis.status !== 'done' || !analysis.pdf_path) {
+      return res.status(409).send(`report not ready (status: ${analysis.status})`);
+    }
+    return res.type('pdf').sendFile(analysis.pdf_path);
   }
-  res.type('pdf').sendFile(analysis.pdf_path);
+  const diskPath = reportPath(req.params.id, 'pdf');
+  if (fs.existsSync(diskPath)) return res.type('pdf').sendFile(diskPath);
+  return res.status(404).send('analysis not found');
 });
 
 /** Step 3: the contact gate. Captures the lead and sends both emails. */

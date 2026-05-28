@@ -5,7 +5,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "strict": true,
+    // Emit the composite build artifacts to a temp dir, not next to the source.
+    // Otherwise tsc -b writes vite.config.js in place, and Vite resolves
+    // vite.config.js BEFORE vite.config.ts, silently shadowing the real config.
+    "outDir": "./node_modules/.tmp/tsconfig-node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig-node/tsconfig.node.tsbuildinfo"
   },
   "include": ["vite.config.ts"]
 }

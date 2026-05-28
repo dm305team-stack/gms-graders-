@@ -5,6 +5,13 @@ node_modules/
 dist/
 .vite/
 
+# TypeScript composite build artifacts. vite.config.js in particular must never
+# be committed: Vite resolves vite.config.js before vite.config.ts and would
+# silently shadow the real config.
+*.tsbuildinfo
+apps/*/vite.config.js
+apps/*/vite.config.d.ts
+
 # Env files — never commit secrets
 .env
 .env.*

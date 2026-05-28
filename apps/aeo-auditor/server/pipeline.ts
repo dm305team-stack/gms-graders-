@@ -13,7 +13,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import {
   createClient,
@@ -36,13 +35,8 @@ import {
 
 import { renderPdf } from './pdf.js';
 import { renderReportHtml, extractOverallScores } from './report.js';
+import { REPORTS_DIR, persistSidecar } from './storage.js';
 import type { Analysis, EngineLabel } from './types.js';
-
-const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const REPORTS_DIR = path.join(
-  process.env.AEO_DATA_ROOT || path.join(APP_ROOT, '.aeo-data'),
-  'reports',
-);
 
 /** llm EngineId -> AEO report label (OpenAI is "chatgpt" in the AEO domain). */
 const ENGINE_LABEL: Record<EngineId, EngineLabel> = {
@@ -104,11 +98,13 @@ export async function runPipeline(analysis: Analysis): Promise<void> {
     // once the visitor leaves contact details.
     analysis.status = 'done';
     analysis.finished_at = new Date().toISOString();
+    persistSidecar(analysis);
     log(`done in ${Math.round((Date.now() - analysis._t0) / 1000)}s`);
   } catch (err) {
     analysis.status = 'failed';
     analysis.error = err instanceof Error ? err.message : String(err);
     analysis.finished_at = new Date().toISOString();
+    persistSidecar(analysis);
     console.error(`[${analysis.analysis_id}] failed: ${analysis.error}`);
   }
 }

@@ -6,6 +6,7 @@
  */
 export const GMS_UI_VERSION = '0.1.0';
 
+export * from './cx';
 export * from './components/HexBackground';
 export * from './components/TopRule';
 export * from './components/BrandMark';

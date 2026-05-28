@@ -25,5 +25,14 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
+    rollupOptions: {
+      // Two entries: the public landing (index.html) and the internal
+      // operator console (console.html). The console never ships in the
+      // public bundle; in dev Vite serves it directly at /console.html.
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        console: path.resolve(__dirname, 'console.html'),
+      },
+    },
   },
 });
