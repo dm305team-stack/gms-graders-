@@ -1,306 +1,232 @@
 # Session Handoff — AEO Visibility Auditor
 
-Fecha de la sesión: 2026-05-19 (jornada extendida). Siguiente sesión: 2026-05-20.
-Lee este archivo completo antes de tocar nada.
+Fecha de actualización: 2026-05-21. Esta es la entrada principal del proyecto.
+Lee este archivo primero. Para detalle histórico ver `session-2026-05-19` → `session-2026-05-20.md` → `session-2026-05-21.md`.
 
 ---
 
-## Estado en una línea
+## ⚓ ESTADO ACTUAL — MVP OPERATIVO, EN GITHUB, CORRIENDO LOCAL
 
-Phase 2 brief renderer terminado + bug del layout del PDF (17 páginas con
-orphans) **arreglado** (17 → 10 páginas). Sin commitear. Mañana: validación
-visual + audit real + decidir commits.
+| Capa | Estado | Última verificación |
+|---|---|---|
+| Pipeline 4-stage (queries → motores → parse → synthesis) | ✅ Operativo | Real audit `AEO-996501b3` en 3:25, $0.211 |
+| Stage D inglés forzado | ✅ Validado | 0 conjugaciones en español en 271KB HTML |
+| PDF brief 11 páginas físicas, split 3+3 Recommendations | ✅ Validado | Mock audit `AEO-b4b7b107`, 11 páginas, 6 rec items |
+| Form gate + Bucket C funnel (audit → blur → gate → emails) | ✅ Operativo | Sin retroceso desde sesión 2026-05-19 |
+| Landing con `AeoDimensions` (6 parámetros 3x2) | ✅ Nuevo | Commit `4ec4093` |
+| Repo en GitHub | ✅ `dm305team-stack/gms-graders-` PRIVATE | Branch `feature/aeo-pdf-report` pusheado al commit `e7c131c` |
+| Working tree | ✅ Limpio al cierre | (este archivo lo modificará después de leerlo) |
+| Dev servers local (`dev:all`) | ▶️ Corriendo | Vite :5173 + API :3334 (PID 12072, REAL pipeline) |
+| Deploy Hostinger | ⏸️ Pausado | Operador trabaja local; plan VPS KVM 2 + `scanaeo.com` armado |
+| GitHub App (`/install-github-app`) | ⏸️ Pausado | Fases 1-2 hechas, 3-5 sin ejecutar |
 
 ---
 
 ## Git
 
-Branch: `feature/aeo-pdf-report`. NO main. Nada pusheado.
+Branch activo: **`feature/aeo-pdf-report`**, tracking `origin/feature/aeo-pdf-report`.
 
-HEAD: `766833e feat(aeo): Bucket C funnel completo - form->audit->blur+gate->emails`
-
-### Working tree — sin commitear
-
-Modificados:
-
-- `apps/aeo-auditor/server/report.ts`
-  Reescritura completa del renderer del brief (Phase 2) +
-  bloque `PRINT_OVERRIDES` para fix del layout del PDF (ver más abajo).
-
-- `apps/aeo-auditor/server/pdf.ts`
-  Agregado `preferCSSPageSize: true` al `page.pdf({...})` de Playwright.
-
-- `packages/llm/src/prompts/synthesize.ts`
-  Directiva `CRITICAL OUTPUT LANGUAGE: ... US English` prepended al
-  `SYNTHESIZE_REPORT_PROMPT_V1`. **Próxima audit paga ~14K tokens de cache
-  write**, esperado.
-
-- `package.json` (root), `pnpm-lock.yaml`, `apps/aeo-auditor/package.json`
-  Trabajo de la saga pnpm/corepack para Hostinger (`packageManager`
-  eliminado, lockfile en pnpm 9.15.9, `tsx` movido a `dependencies`).
-
-- `apps/aeo-auditor/server/index.ts`
-  Solo diferencia cosmética vs HEAD (trabajo del Hostinger task con
-  `'0.0.0.0'` listen + bloque static + dynamic PORT). Net funcional cero
-  más allá de eso. `git checkout` si querés dejarlo limpio.
-
-Untracked:
-
-- `.npmrc` — `minimum-release-age=0`. Desactiva cooldown anti-supply-chain.
-- `gms-graders-deploy.zip` — artefacto de deploy (2.2 MB). Considerar
-  `*.zip` en gitignore.
-- `source/test*.png` — pre-existente.
-- `session.md` — este archivo.
-
----
-
-## Qué se hizo HOY (jornada extendida)
-
-### 1. Bucket C — committed en `766833e`
-
-Funnel: form 5 campos → audit → vista del report real desenfocado con gate
-inline → 2 emails (cliente + Fermin) con PDF adjunto. SMTP Resend gateway.
-
-### 2. Phase 2 — Brief renderer (sin commitear)
-
-`server/report.ts` reescrito para producir el Deep Audit Brief matcheando
-`templates/brief-master.html`. 10 secciones. Engine count dinámico. Footnotes
-numerados a partir de tags `[research:]` del JSON. Más detalle en el handoff
-previo y en los comments del archivo.
-
-### 3. Prompt: forzado de idioma inglés (sin commitear)
-
-Directiva al comienzo de `SYNTHESIZE_REPORT_PROMPT_V1` que fuerza US English
-en todos los strings narrativos. El resto del prompt intacto. Antes producía
-español; ahora va a producir inglés.
-
-### 4. PDF layout fix (sin commitear) — bug del audit AEO-cb80553e
-
-**Síntoma**: PDFs renderizaban 17 páginas en vez de 10. Headers de sección
-quedaban huérfanos en su propia página, con el contenido en la siguiente. Una
-sentencia única en otra página. Márgenes inferiores variables.
-
-**Diagnóstico**: el master spec tiene `.page { min-height: 11in }` con
-`@page { size: letter; margin: 0 }`. Cada `<section class="page">` quiere
-llenar exactamente una página física. Pero Chromium con sub-pixel font
-metrics renderiza el box ligeramente más alto que 11in (overshoot por unos
-pocos píxeles), lo que empuja cada sección a una segunda página física, con
-el `.page-footer` (absoluto en `bottom: 0.4in`) en página 2 solo. 10 secciones
-× ~1.7 páginas reales = 17 páginas con orphans.
-
-**Fix**: bloque `PRINT_OVERRIDES` en `report.ts` que clampa la altura a
-exactamente 11in con `overflow: hidden` y tightenea el contenido para que
-NO recorte:
-
-  ```css
-  .page:not(.cover) {
-    height: 11in; min-height: 11in; max-height: 11in;
-    overflow: hidden;
-    padding: 0.6in 0.75in 0.65in 0.75in;
-  }
-  .cover { height: 11in; min-height: 11in; max-height: 11in; overflow: hidden; }
-  ```
-
-Además: tightening en cover (font 64→56px, score 140→124px), sec-head
-(h2 42→36px), method-cards, scorecard rows, e-cards, recs (font 26→21px,
-tier badges, etc.), comp-table. `break-inside: avoid` en cards/recs/fn-items
-y `break-after: avoid` en headers. `orphans: 3; widows: 3;` en paragraphs.
-
-Además en `pdf.ts`: `preferCSSPageSize: true` para que el `@page` del CSS
-gobierne sobre los args de Playwright.
-
-**Resultado verificado**: re-rendericé el HTML de `AEO-cb80553e` con los
-overrides inyectados y el nuevo `pdf.ts`. PDF resultado en `/tmp/AEO-cb80553e-fixed.pdf`.
-**17 → 10 páginas**, una por sección, todas con contenido sustantivo:
-
-  p1 Cover · p2 Executive Verdict · p3 Methodology · p4 Scorecard ·
-  p5 Per-Engine Findings · p6 Structural Analysis · p7 Competitive Landscape ·
-  p8 Recommendations · p9 Sources & Footnotes · p10 Next Steps
-
-El master spec **NO se tocó** (`brief-master.html` intacto). Los overrides
-viven como un segundo `<style>` block dentro de `report.ts`, inyectado
-después del CSS extraído del master. Cascade resuelve a los overrides.
-
-**Compromises visuales aceptados**:
-- Tipografía levemente reducida vs el master para garantizar que el
-  contenido entre en 11in (h1 cover 64→56px, h2 sec-head 42→36px,
-  cover-score-num 140→124px, recs title 26→21px, etc.).
-- `overflow: hidden` en cada sección: si una sección tiene contenido
-  excepcionalmente largo (más allá del worst-case planificado), las
-  últimas líneas se clipean al borde inferior del frame de 11in en lugar
-  de spillear a una segunda página. Mejor que orphans.
-- Cover-title sin italic-split (sigue así desde Phase 2 — no se puede
-  auto-derivar el split del master `Dr. Jonathan <em>Schwitzer</em><br>
-  Plastic Surgery` desde un brand genérico).
-
----
-
-## Pendientes (open items)
-
-### 1. Validación visual del PDF arreglado
-
-`/tmp/AEO-cb80553e-fixed.pdf` quedó en disco para que lo abras y verifiques
-visualmente:
-```bash
-open /tmp/AEO-cb80553e-fixed.pdf
 ```
-Comparar contra `apps/aeo-auditor/.aeo-data/reports/AEO-cb80553e.pdf` (el
-buggy de 17 páginas). Confirmá:
-- 10 páginas, una por sección.
-- Cover completa con todo (sin spill a página 2).
-- Per-Engine en página 5 con las 4 cards (no header solo).
-- Competitive context en página 7 con la tabla (no sentencia única en
-  página aparte).
-- Next Steps en página 10, sin cramping arriba.
+e7c131c chore: gitignore zip artifacts and save session handoff docs
+a0b1b36 chore(deploy): hostinger prep — listen 0.0.0.0, tsx in deps, .npmrc
+4ec4093 feat(aeo): add AeoDimensions section to landing (six weighted parameters)
+326aa36 feat(aeo): render Deep Audit Brief on 10-page layout with 3+3 split for Recommendations
+1fb9379 feat(@gms/llm): force US English output in SYNTHESIZE_REPORT_PROMPT_V1
+34c381a chore: ignore deploy tarballs                       ← anchor MVP (cierre 2026-05-20)
+766833e feat(aeo): Bucket C funnel completo
+53744ca feat(aeo): ground Stage D synthesis in AEO research base with prompt caching
+c011df6 fix(@gms/llm): repair OpenAI/Gemini engines and gate Perplexity
+69ca105 AEO report: 8-section multi-page PDF modeled on the HubSpot grader
+cc91505 Initial commit: GMS Graders monorepo + AEO auditor Phase 1 backend
+```
 
-Si encontrás alguna sección donde se clipea contenido por el `overflow: hidden`,
-decime cuál y hago tightening puntual ahí.
-
-### 2. Audit real para validar end-to-end con el prompt nuevo
-
-Necesario para confirmar:
-- Que Stage D produce inglés (no español).
-- Que el renderer + PDF fix funciona en el camino productivo (no solo en
-  test). El test usó el HTML de cb80553e + override injection; el path real
-  va por `renderReportHtml` que ya inyecta `PRINT_OVERRIDES` por código.
-- Que los emails siguen saliendo y el flujo Bucket C completo no rompió.
-
-Costo: la primera audit paga ~14K tokens de cache write por el prompt nuevo
-(~$0.21 extra). Las siguientes vuelven a cache hits normales.
-
-Payload Schwitzer en sección "Cómo correr" del handoff previo.
-
-### 3. Decidir commits
-
-Cuatro bloques separables:
-
-a. **Prompt language directive** (`packages/llm/src/prompts/synthesize.ts`)
-   `feat(@gms/llm): force US English output in SYNTHESIZE_REPORT_PROMPT_V1`
-
-b. **Phase 2 brief renderer + PDF layout fix** (`report.ts`, `pdf.ts`)
-   `feat(aeo): render Deep Audit Brief against brief-master.html (10-page layout)`
-   Se pueden combinar — el PDF fix es un addendum al brief refactor; van
-   funcionalmente juntos.
-
-c. **Deploy prep dust** (`package.json`, `pnpm-lock.yaml`,
-   `apps/aeo-auditor/package.json`, `.npmrc`)
-   `chore(deploy): hostinger pnpm 9 config, no packageManager pin`
-
-d. **server/index.ts cosmético** (si el diff vs HEAD existe)
-   `git checkout` si solo es whitespace; el bloque productivo ya está
-   en `766833e`.
-
-### 4. Hostinger deploy
-
-Sin resolver. Path recomendado: cambiar a Node 22 en el panel (1 clic).
-Si no, manual SSH con `corepack disable` + `npm i -g pnpm@9`. Más
-detalle en `deploy/HOSTINGER.md`.
-
-### 5. Limpieza menor
-
-- `engines.pnpm: ">=9"` en root `package.json` es stale.
-- Considerar `*.zip` en `.gitignore`.
-- `source/test*.png` siguen untracked.
+Remote: `https://github.com/dm305team-stack/gms-graders-.git` (con guion final, repo privado).
+Git identity local: `dm305team` / `dm305team@gmail.com`.
 
 ---
 
-## Cómo correr
+## Cómo correr ahora mismo
+
+### Local con dev:all (Vite + API en paralelo)
 
 ```bash
-pnpm --filter @gms/aeo-auditor dev:all   # vite 5173 + api 3334
-open http://localhost:5173                # webapp
+pnpm --filter @gms/aeo-auditor dev:all
+# → Vite frontend en http://localhost:5173/
+# → API backend en http://localhost:3334/
 ```
 
-Payload Schwitzer para audit real:
-```json
-{
-  "domain": "drjonathanschwitzer.com",
-  "brand": "Dr. Jonathan Schwitzer Plastic Surgery",
-  "location": "Bay Harbor Islands, FL",
-  "specialty": "Plastic surgery",
-  "product": "Rhinoplasty, facelift, breast augmentation, mommy makeover"
-}
-```
+Si en este momento están corriendo (PID 12072), abrir directo:
+**http://localhost:5173/**
 
-Smoke test prod local:
+### Toggle de modo pipeline
+
+`.env` actual: `AEO_MOCK_PIPELINE=false` (REAL, cada audit cuesta ~$0.21).
+
+Para correr sin costo:
 ```bash
-cd apps/aeo-auditor
-pnpm build
-NODE_ENV=production PORT=4173 npx tsx server/index.ts
-curl -I http://localhost:4173
+AEO_MOCK_PIPELINE=true pnpm --filter @gms/aeo-auditor dev:all
 ```
 
-Para mock testing sin gastar API: `AEO_MOCK_PIPELINE=true` en `.env`.
+### Audit real desde CLI (sin pasar por el frontend)
+
+```bash
+curl -X POST http://localhost:3334/api/run-analysis \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"drjonathanschwitzer.com","brand":"Dr. Jonathan Schwitzer Plastic Surgery","location":"Bay Harbor Islands, FL","specialty":"Plastic surgery","product":"Rhinoplasty, facelift, breast augmentation"}'
+
+# Devuelve { "analysis_id": "AEO-...", "status": "queued" }
+# Polling:
+curl http://localhost:3334/api/analyses/<id>
+
+# Cuando status=done:
+open apps/aeo-auditor/.aeo-data/reports/<id>.pdf
+```
 
 ---
 
-## Arquitectura — recordatorio
+## Qué se hizo en la sesión 2026-05-21
 
-- `server/index.ts`: Express + in-memory `Map`. Endpoints `/api/run-analysis`,
-  `/api/analyses/:id`, `/api/analyses/:id/{report,report.pdf}`,
-  `/api/analyses/:id/unlock`. En prod sirve `dist/` también.
+### 1. Setup GitHub (Fases 1-2 de 5)
 
-- `server/pipeline.ts`: Stage A (Haiku queries) → Stage B (motores en
-  paralelo) → Stage C (Haiku parse) → Stage D (Sonnet synthesis con research
-  base + prompt caching) → renderiza HTML/PDF. Status → `done`. NO envía
-  emails — eso lo hace `/unlock`.
+- Operador autenticado como `dm305team-stack` via `gh auth login`.
+- Remote URL corregido: `gms-graders.git` → `gms-graders-.git` (con guion final).
+- Git identity local seteada (`dm305team` / `dm305team@gmail.com`).
+- `main` y `feature/aeo-pdf-report` pusheados con upstream.
+- Repo cambiado a PRIVATE (`gh repo edit --visibility private`).
 
-- `server/report.ts`: renderer del brief. Lee `templates/brief-master.html`
-  solo para extraer el `<style>` block + inyectar `PRINT_OVERRIDES`. El
-  resto del HTML se genera por código.
+Fases 3-5 (install-github-app + whitelist workflow + spend cap) pausadas.
+Plan completo en `~/.claude/plans/primero-me-gustaria-saber-logical-crystal.md`.
 
-- `server/pdf.ts`: HTML → PDF vía Playwright headless Chromium.
-  `preferCSSPageSize: true` deja al `@page` del master gobernar.
+### 2. Diagnóstico estructural Hostinger Premium
 
-- `server/email.ts`: Resend SMTP gateway. `sendReportEmail` + `sendLeadNotification`,
-  ambos con PDF adjunto.
+Identificadas 6 paredes que hacen Premium inviable sin refactor masivo. Las
+dos fatales: Playwright Chromium (sin apt install) y packages internos que
+exportan TypeScript crudo (sin tsx como entry).
 
-- `packages/llm/`: clients de los 4 motores + prompts + research base loader.
-  El prompt `SYNTHESIZE_REPORT_PROMPT_V1` arranca con la directiva de inglés.
+Path A (Hostinger VPS KVM 2 + `scanaeo.com`) armado como brief listo para
+agente de instalación de Hostinger. Operador decidió pausar el deploy y
+seguir local.
 
-- `apps/aeo-auditor/server/templates/brief-master.html`: master spec.
-  **READ-ONLY.** El renderer le extrae el CSS al cargar.
+### 3. Validación end-to-end del MVP
 
-- `aeo-research/`: research base (8 módulos + README). **READ-ONLY.**
+- **Mock audit `AEO-b4b7b107`**: 11 páginas físicas, 6 rec items presentes,
+  header `· CONTINUED` en página B. Split 3+3 confirmado.
+- **Real audit `AEO-996501b3`**: 3:25 minutos, $0.211, 18 engine calls
+  (3 motores × 6 queries). Cero palabras en español en 271KB HTML.
+  Stage D inglés confirmado.
 
----
+### 4. Cinco commits separables ejecutados desde working tree heredado
 
-## Gotchas (no repetir errores)
+Trabajo de 3 sesiones (`feature/aeo-pdf-report` desde `34c381a`) consolidado en:
+- Stage D English directive
+- Brief renderer 10-page + split 3+3
+- AeoDimensions landing section
+- Hostinger prep (listen 0.0.0.0, tsx en deps, .npmrc)
+- gitignore zips + handoff docs (3 archivos session)
 
-- **Master tiene `min-height: 11in` que causa overshoot**. Si querés volver
-  a un PDF que respete el master 100% en tipografía, el bug de las 17
-  páginas vuelve. El fix actual prioriza layout limpio sobre 100% fidelidad
-  tipográfica.
+Working tree quedó limpio. Todo pusheado a GitHub.
 
-- **Idioma del JSON**: hasta esta sesión salía en español. El prompt nuevo
-  fuerza inglés. Validación end-to-end pendiente.
+### 5. Dev servers locales arrancados
 
-- **`by_engine` siempre tiene 4 llaves** aunque ENABLE_PERPLEXITY=false.
-  El renderer filtra por `activeEngines()`. No iterar `Object.keys`.
-
-- **Source scores en 0-10**: el JSON real trae score en 0-10. El renderer
-  auto-normaliza ×10 si ≤ 10.
-
-- **Hostinger panel no lee `package.json`**: la saga de pnpm versions fue
-  inútil contra el panel. El fix real está en plataforma (Node 22 / SSH).
-
-- **`tsx watch` borra el `Map` de analyses al recargar**. Audits en curso
-  se pierden al guardar un archivo del server.
-
-- **`brief-master.html` pesa 270KB por el logo en base64**. No abrir con
-  Read tool de golpe; usar offset+limit.
-
-- **`/tmp/AEO-cb80553e-fixed.pdf`** es el archivo de verificación visual
-  del fix de layout. Si querés reproducirlo, el path real productivo va
-  por `renderReportHtml` que ya tiene `PRINT_OVERRIDES` bakeado adentro;
-  un audit real ya genera con el fix aplicado.
+Para testing manual del operador. Corriendo en `pnpm dev:all` con REAL pipeline.
 
 ---
 
-## Próximo paso sugerido (mañana)
+## Pendientes (paused tracks)
 
-1. Abrí `/tmp/AEO-cb80553e-fixed.pdf` y verificá las 10 páginas.
-2. Corré una audit real con el prompt nuevo (Schwitzer payload). Validá
-   idioma inglés + email delivery + brief PDF.
-3. Si todo OK: commitear en 2-3 commits separados (ver Pendientes #3).
-4. Resolver Hostinger (Node 22 en panel o SSH manual).
+### A. Setup GitHub Fases 3-5
+
+1. (operador) `/install-github-app` en Claude Code → elegir repo `gms-graders-` → pegar `ANTHROPIC_API_KEY`. Genera `.github/workflows/claude.yml`.
+2. (Claude) Agregar whitelist al workflow: `if: github.event.sender.login == 'dm305team-stack'`. Commit + push.
+3. (operador) Monthly spend cap en `console.anthropic.com/settings/limits` como red de seguridad.
+
+Plan completo en `~/.claude/plans/primero-me-gustaria-saber-logical-crystal.md`.
+
+### B. Deploy a Hostinger (cuando se decida)
+
+- Comprar VPS KVM 2 anual ($119.88 primer año, $203.88 renovación)
+- Registrar `scanaeo.com` y apuntar A record a IP del VPS
+- Brief completo de setup armado, incluye:
+  - Node 20 vía nvm, pnpm 9 vía corepack, pm2
+  - `npx playwright install chromium --with-deps` (instala las ~25 libs del sistema)
+  - Deploy key SSH para clonar el repo privado
+  - nginx reverse proxy + certbot Let's Encrypt
+  - `.github/workflows/deploy-hostinger.yml` con `appleboy/ssh-action` (post-setup)
+
+Memoria persistente: `~/.claude/projects/.../memory/aeo-deploy-on-hold.md`.
+
+### C. Mejoras futuras (no urgentes)
+
+- Validar email delivery end-to-end (Bucket C completo con SMTP Resend en prod)
+- Refactor del `Map<id, Analysis>` en memoria a Supabase Postgres (preparación multi-instance)
+- Monitoring del costo por audit en producción
+- Test visual del PDF (abrir manualmente y verificar layout en cada página)
+
+---
+
+## Arquitectura (sin cambios)
+
+```
+gms-graders/                            ← monorepo pnpm
+├── apps/aeo-auditor/
+│   ├── server/
+│   │   ├── index.ts                    ← Express + Map<id, Analysis>, listen 0.0.0.0:$PORT
+│   │   ├── pipeline.ts                 ← Stage A-D orchestration
+│   │   ├── report.ts                   ← renderer del brief (renderRecommendationsPage retorna 2 sections)
+│   │   ├── pdf.ts                      ← Playwright headless Chromium, preferCSSPageSize=true
+│   │   └── email.ts                    ← Resend SMTP, 2 emails (lead + Fermin)
+│   ├── src/                            ← Vite + React frontend
+│   │   ├── App.tsx
+│   │   └── components/
+│   │       └── AeoDimensions.tsx       ← NEW: 6 parámetros del análisis (3x2 grid)
+│   ├── templates/brief-master.html     ← READ-ONLY, master del layout (270KB con logo base64)
+│   └── .aeo-data/reports/              ← runtime, gitignored, PDFs + HTMLs renderizados
+│
+├── packages/
+│   ├── llm/                            ← clients 4 motores + prompts + research base
+│   │   └── src/prompts/synthesize.ts   ← directiva inglés prepended HOY
+│   └── ui/                             ← design system compartido
+│
+├── aeo-research/                       ← READ-ONLY base de evidencia académica para Stage D
+├── ecosystem.config.cjs                ← pm2 config (npx tsx server/index.ts)
+└── deploy/HOSTINGER.md                 ← docs deploy VPS (referencia para retomar)
+```
+
+---
+
+## Endpoints del API
+
+```
+GET   /api/health                       → estado del server
+POST  /api/run-analysis                 → kick-off audit (body: domain, brand, location, specialty, product)
+GET   /api/analyses/:id                 → estado de un audit
+GET   /api/analyses/:id/report          → HTML del brief
+GET   /api/analyses/:id/report.pdf      → PDF del brief
+POST  /api/analyses/:id/unlock          → captura de lead + envía emails (Bucket C gate)
+```
+
+---
+
+## Gotchas
+
+- **`renderRecommendationsPage` retorna 2 sections, no 1**. Si se agrega item 07, hay que splitar a 3 páginas o aceptar overflow.
+- **`break-inside: avoid` en `.rec-item` no defiende** cuando la página tiene `overflow: hidden` + altura fija. Defensa real = split manual en HTML.
+- **Brief tiene 11 páginas físicas** (cover + 9 numeradas + next steps). Footers van `02 / 10` a `10 / 10`.
+- **`tsx watch` borra el `Map` de analyses al recargar**. Audits en curso se pierden al guardar un archivo del server.
+- **`brief-master.html` pesa 270KB por el logo base64**. No abrir con Read tool de golpe; usar offset+limit.
+- **Perplexity disabled por default**: `ENABLE_PERPLEXITY` no está set en `.env`, así que solo corren 3 motores. Audit real costó $0.211 con esa config.
+- **Idioma Stage D**: forzado a inglés vía directiva en `SYNTHESIZE_REPORT_PROMPT_V1`. No quitar ni mover esa directiva sin re-validar.
+- **`packages/llm` y `packages/ui` exportan TypeScript crudo** (`"main": "./src/index.ts"`), no JS compilado. El server depende de tsx como loader. Crítico para cualquier deploy futuro.
+
+---
+
+## Próximo paso sugerido
+
+El proyecto está operativo y pusheado. Opciones para la próxima sesión:
+
+1. **Retomar setup GitHub Fases 3-5** si querés `@claude` en issues/PRs del repo.
+2. **Retomar deploy Hostinger** cuando el VPS esté comprado (plan listo).
+3. **Nueva feature** sobre el MVP estable.
+4. **Refactor del state en memoria** a Supabase Postgres.
+
+Nada urgente. MVP corre y entrega PDF completo bajo Bucket C.

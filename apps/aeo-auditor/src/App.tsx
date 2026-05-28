@@ -10,7 +10,7 @@ import { ScopePillsRow } from './components/ScopePillsRow';
 import s from './App.module.css';
 
 const HERO_LEAD: Record<Geo, string> = {
-  'Florida Medical Practices': 'Most Florida medical practices are',
+  'Florida Medical Practices': 'Most Florida companies are',
   Miami: 'Most Miami medical practices are',
   Orlando: 'Most Orlando medical practices are',
   Tampa: 'Most Tampa medical practices are',
