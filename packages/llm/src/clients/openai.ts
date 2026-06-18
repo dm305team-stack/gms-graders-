@@ -2,7 +2,15 @@
  * @gms/llm — OpenAI (ChatGPT) client
  *
  * Soporta GPT-5.2 (default), GPT-5.4, y modelos legacy.
- * No tiene búsqueda web nativa por API; representa la "vista training data".
+ *
+ * Dos modos:
+ *  - webSearch: false (default) -> chat.completions, vista "training data".
+ *  - webSearch: true -> Responses API con la tool nativa `web_search`, que
+ *    reproduce lo que ve un usuario en ChatGPT con búsqueda activa. Las citas
+ *    (url_citation) se devuelven en `sources`.
+ *
+ * AEO: la búsqueda es del propio motor respondiendo una query de categoría;
+ * la query nunca nombra la marca (eso lo garantiza el pipeline).
  */
 
 import OpenAI from 'openai';
@@ -24,6 +32,61 @@ export class OpenAIClient extends BaseLLMClient {
   }
 
   protected async executeRequest(request: LLMRequest): Promise<LLMResponse> {
+    return request.webSearch
+      ? this.executeWebSearch(request)
+      : this.executeChat(request);
+  }
+
+  /** Grounded path: Responses API + native web_search tool, with citations. */
+  private async executeWebSearch(request: LLMRequest): Promise<LLMResponse> {
+    const model = request.modelOverride ?? this.defaultModel;
+    const start = Date.now();
+
+    // Engine calls are single-turn: the user message carries the customer query.
+    const input = request.messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => m.content)
+      .join('\n\n');
+
+    try {
+      const response = await this.client.responses.create({
+        model,
+        input,
+        instructions: request.system,
+        tools: [{ type: 'web_search_preview' }],
+        max_output_tokens: Math.max(8000, request.maxTokens ?? 4096),
+      });
+
+      const content = response.output_text ?? '';
+      const sources = extractResponsesCitations(response);
+      const tokensIn = response.usage?.input_tokens ?? 0;
+      const tokensOut = response.usage?.output_tokens ?? 0;
+
+      // Count the web_search_call items, so pricing can bill per search.
+      const searchCount = (response.output ?? []).filter(
+        (item) => item.type === 'web_search_call',
+      ).length;
+
+      const costUsd = calculateCost({ model, tokensIn, tokensOut, searchCount });
+
+      return {
+        engine: 'openai',
+        model,
+        content,
+        tokensIn,
+        tokensOut,
+        costUsd,
+        latencyMs: Date.now() - start,
+        sources,
+        raw: response,
+      };
+    } catch (err) {
+      throw normalizeOpenAIError(err);
+    }
+  }
+
+  /** Ungrounded path: chat.completions (no web search). Used by aux stages. */
+  private async executeChat(request: LLMRequest): Promise<LLMResponse> {
     const model = request.modelOverride ?? this.defaultModel;
     const start = Date.now();
 
@@ -71,6 +134,27 @@ export class OpenAIClient extends BaseLLMClient {
       throw normalizeOpenAIError(err);
     }
   }
+}
+
+/** Pull url_citation annotations out of a Responses API result into `sources`. */
+function extractResponsesCitations(
+  response: OpenAI.Responses.Response,
+): Array<{ url: string; title?: string }> {
+  const seen = new Set<string>();
+  const sources: Array<{ url: string; title?: string }> = [];
+  for (const item of response.output ?? []) {
+    if (item.type !== 'message') continue;
+    for (const part of item.content ?? []) {
+      if (part.type !== 'output_text') continue;
+      for (const ann of part.annotations ?? []) {
+        if (ann.type === 'url_citation' && ann.url && !seen.has(ann.url)) {
+          seen.add(ann.url);
+          sources.push({ url: ann.url, title: ann.title });
+        }
+      }
+    }
+  }
+  return sources;
 }
 
 function normalizeOpenAIError(err: unknown): LLMError {

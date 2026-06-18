@@ -41,8 +41,14 @@ export class ClaudeClient extends BaseLLMClient {
 
     const systemBlocks = buildSystemBlocks(
       request.system ?? extractSystemFromMessages(request.messages),
-      request.enableCache && supportsCaching(model),
+      Boolean(request.enableCache) && supportsCaching(model),
     );
+
+    // Grounded path: the native web_search server tool reproduces what a user
+    // sees in Claude with search on. Citations land on the text blocks.
+    const tools: Anthropic.ToolUnion[] | undefined = request.webSearch
+      ? [{ type: 'web_search_20250305', name: 'web_search' }]
+      : undefined;
 
     try {
       const response = await this.client.messages.create({
@@ -51,23 +57,27 @@ export class ClaudeClient extends BaseLLMClient {
         temperature: request.temperature ?? 0.3,
         system: systemBlocks,
         messages: anthropicMessages,
+        tools,
       });
 
-      const content =
-        response.content
-          .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-          .map((block) => block.text)
-          .join('\n') ?? '';
+      const textBlocks = response.content.filter(
+        (block): block is Anthropic.TextBlock => block.type === 'text',
+      );
+      const content = textBlocks.map((block) => block.text).join('\n') ?? '';
+
+      const sources = extractWebSearchCitations(textBlocks);
 
       const tokensIn = response.usage.input_tokens ?? 0;
       const tokensOut = response.usage.output_tokens ?? 0;
       const tokensCached = response.usage.cache_read_input_tokens ?? 0;
+      const searchCount = response.usage.server_tool_use?.web_search_requests ?? 0;
 
       const costUsd = calculateCost({
         model,
         tokensIn,
         tokensOut,
         tokensCached,
+        searchCount,
       });
 
       return {
@@ -79,6 +89,7 @@ export class ClaudeClient extends BaseLLMClient {
         tokensCached,
         costUsd,
         latencyMs: Date.now() - start,
+        sources: sources.length ? sources : undefined,
         raw: response,
       };
     } catch (err) {
@@ -114,6 +125,23 @@ function buildSystemBlocks(
 function extractSystemFromMessages(messages: LLMRequest['messages']): string | undefined {
   const sys = messages.find((m) => m.role === 'system');
   return sys?.content;
+}
+
+/** Collect web_search citations attached to the response text blocks. */
+function extractWebSearchCitations(
+  textBlocks: Anthropic.TextBlock[],
+): Array<{ url: string; title?: string }> {
+  const seen = new Set<string>();
+  const sources: Array<{ url: string; title?: string }> = [];
+  for (const block of textBlocks) {
+    for (const citation of block.citations ?? []) {
+      if (citation.type !== 'web_search_result_location') continue;
+      if (!citation.url || seen.has(citation.url)) continue;
+      seen.add(citation.url);
+      sources.push({ url: citation.url, title: citation.title ?? undefined });
+    }
+  }
+  return sources;
 }
 
 function normalizeAnthropicError(err: unknown): LLMError {

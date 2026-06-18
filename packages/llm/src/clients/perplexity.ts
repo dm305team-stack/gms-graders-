@@ -68,7 +68,7 @@ export class PerplexityClient extends BaseLLMClient {
       }
 
       const response = (await this.client.chat.completions.create(
-        params as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+        params as unknown as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
       )) as PerplexityCompletion;
 
       const content = response.choices[0]?.message?.content ?? '';

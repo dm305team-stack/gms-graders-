@@ -193,8 +193,19 @@ const PRINT_OVERRIDES = `<style>
 const INDUSTRY_BENCHMARK = 75;
 const ALL_ENGINES: EngineLabel[] = ['chatgpt', 'perplexity', 'gemini', 'claude'];
 
-/** Engines the pipeline actually runs (Perplexity is opt-in). */
-export function activeEngines(): EngineLabel[] {
+/**
+ * Engines that actually contributed to this audit. Source of truth is the Stage
+ * C output (engines that produced parsed responses), so a non-run engine (e.g.
+ * Perplexity with no API key) never shows a phantom 0 in the cross-engine score.
+ * Falls back to env-based detection for mock runs / legacy sidecars.
+ */
+export function activeEngines(analysis?: Analysis): EngineLabel[] {
+  const ran = analysis?.parsed_engine_results
+    ?.filter((er) => er.parsed_responses.length > 0)
+    .map((er) => er.engine);
+  if (ran && ran.length) {
+    return ALL_ENGINES.filter((e) => ran.includes(e));
+  }
   const perplexityOn = process.env.ENABLE_PERPLEXITY === 'true';
   return ALL_ENGINES.filter((e) => (e === 'perplexity' ? perplexityOn : true));
 }
@@ -1101,7 +1112,7 @@ function renderNextStepsPage(analysis: Analysis): string {
 // ---------------------------------------------------------------------------
 
 export function renderReportHtml(analysis: Analysis, synthesis: SynthesizeOutput): string {
-  const engines = activeEngines();
+  const engines = activeEngines(analysis);
   const fn = new FootnoteRegistry();
 
   // Order matters: footnote registry accumulates in document order.
@@ -1152,7 +1163,7 @@ export function renderEmailHtml(analysis: Analysis, synthesis: SynthesizeOutput)
   const { input } = analysis;
   const contact = analysis.contact;
   const fullName = contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'there';
-  const engines = activeEngines();
+  const engines = activeEngines(analysis);
   const avg = averageScore(synthesis, engines);
   const grade = GRADE_LABELS[synthesis.summary.overall_grade] ?? synthesis.summary.overall_grade;
   const meets = avg >= INDUSTRY_BENCHMARK;

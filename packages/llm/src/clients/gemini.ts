@@ -1,80 +1,98 @@
 /**
- * @gms/llm — Google Gemini client
+ * @gms/llm — Google Gemini client (@google/genai)
  *
  * Default: gemini-2.5-pro. Para uso ligero (parsing), gemini-3-flash.
+ *
+ * Dos modos:
+ *  - webSearch: false (default) -> generateContent sin tools, vista "training data".
+ *  - webSearch: true -> tool nativa Google Search grounding (`googleSearch`), que
+ *    reproduce lo que ve un usuario en Gemini con búsqueda. Las citas
+ *    (groundingChunks[].web) se devuelven en `sources`.
+ *
+ * AEO: la búsqueda es del propio motor respondiendo una query de categoría;
+ * la query nunca nombra la marca (eso lo garantiza el pipeline).
  */
 
 import {
-  GoogleGenerativeAI,
+  GoogleGenAI,
   HarmCategory,
   HarmBlockThreshold,
-} from '@google/generative-ai';
+  type Content,
+  type SafetySetting,
+  type Tool,
+} from '@google/genai';
 import { BaseLLMClient } from './base.js';
 import { getApiKey, getModel } from '../config.js';
 import { calculateCost } from '../pricing.js';
 import { LLMError } from '../types.js';
 import type { LLMRequest, LLMResponse, EngineId } from '../types.js';
 
+// Para uso B2B/healthcare necesitamos thresholds permisivos o algunos prompts
+// honestos sobre cirugía/medicina/etc. son bloqueados.
+const SAFETY_SETTINGS: SafetySetting[] = [
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT,        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+];
+
 export class GeminiClient extends BaseLLMClient {
   readonly engine: EngineId = 'gemini';
   readonly defaultModel: string;
-  private readonly client: GoogleGenerativeAI;
+  private readonly client: GoogleGenAI;
 
   constructor() {
     super();
     this.defaultModel = getModel('gemini');
-    this.client = new GoogleGenerativeAI(getApiKey('gemini'));
+    this.client = new GoogleGenAI({ apiKey: getApiKey('gemini') });
   }
 
   protected async executeRequest(request: LLMRequest): Promise<LLMResponse> {
     const model = request.modelOverride ?? this.defaultModel;
     const start = Date.now();
 
-    const generativeModel = this.client.getGenerativeModel({
-      model,
-      systemInstruction: request.system,
-      generationConfig: {
-        temperature: request.temperature ?? 0.3,
-        maxOutputTokens: request.maxTokens ?? 4096,
-        responseMimeType: request.jsonMode ? 'application/json' : undefined,
-      },
-      // Para uso B2B/healthcare necesitamos thresholds permisivos
-      // o algunos prompts honestos sobre cirugía/medicina son bloqueados.
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT,        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-      ],
-    });
-
-    // Gemini usa estructura de historia distinta. Convertimos.
-    const history = request.messages
+    const contents: Content[] = request.messages
       .filter((m) => m.role !== 'system')
-      .slice(0, -1) // todo menos el último mensaje
       .map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }],
       }));
 
-    const lastMessage = request.messages
-      .filter((m) => m.role !== 'system')
-      .at(-1);
-
-    if (!lastMessage) {
-      throw new LLMError('Empty message list for Gemini', 'gemini');
-    }
+    // Google Search grounding is incompatible with responseMimeType JSON, so
+    // only force JSON mode on the ungrounded path.
+    const tools: Tool[] | undefined = request.webSearch
+      ? [{ googleSearch: {} }]
+      : undefined;
 
     try {
-      const chat = generativeModel.startChat({ history });
-      const response = await chat.sendMessage(lastMessage.content);
+      const response = await this.client.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction: request.system,
+          temperature: request.temperature ?? 0.3,
+          maxOutputTokens: request.maxTokens ?? 4096,
+          responseMimeType:
+            request.jsonMode && !request.webSearch ? 'application/json' : undefined,
+          safetySettings: SAFETY_SETTINGS,
+          tools,
+        },
+      });
 
-      const content = response.response.text();
-      const usage = response.response.usageMetadata;
-      const tokensIn = usage?.promptTokenCount ?? 0;
-      const tokensOut = usage?.candidatesTokenCount ?? 0;
+      const content = response.text ?? '';
 
-      const costUsd = calculateCost({ model, tokensIn, tokensOut });
+      const sources = (response.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
+        .map((chunk) => chunk.web)
+        .filter((w): w is NonNullable<typeof w> => Boolean(w?.uri))
+        .map((w) => ({ url: w.uri as string, title: w.title }));
+
+      const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
+      const tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
+
+      // Grounded prompts bill one Google Search grounding per request.
+      const searchCount = request.webSearch && sources.length ? 1 : 0;
+
+      const costUsd = calculateCost({ model, tokensIn, tokensOut, searchCount });
 
       return {
         engine: 'gemini',
@@ -84,6 +102,7 @@ export class GeminiClient extends BaseLLMClient {
         tokensOut,
         costUsd,
         latencyMs: Date.now() - start,
+        sources: sources.length ? sources : undefined,
         raw: response,
       };
     } catch (err) {

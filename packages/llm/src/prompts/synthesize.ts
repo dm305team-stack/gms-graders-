@@ -36,29 +36,32 @@ Recibirás:
 
 Tu tarea: producir un reporte JSON con scoring y narrativa por engine, mas un resumen ejecutivo.
 
+QUÉ MIDES (marco AEO): esta es una auditoría de visibilidad en motores de IA CON BÚSQUEDA ACTIVA. Cada respuesta de motor que recibes fue generada con grounding (web search / Google Search / Perplexity), así que refleja lo que un usuario REAL ve al buscar. Mides si el motor surfacea la marca al responder queries de categoría (las queries nunca nombran la marca). NO mides si la marca existe en la web; mides si el motor la elige y la cita.
+
 ESCALA DE SCORING (por engine, total 100 puntos):
 
 1. **Reconocimiento de marca (0-20)**
-   - Frecuencia de menciones / total de queries
-   - Diversidad de fuentes que mencionan la marca
-   - Riqueza de datos disponibles
+   - Lo más importante: ¿el motor NOMBRA la marca al responder queries de categoría? Calibración: la marca surfaceada como opción top / primera recomendación en la mayoría de sus queries = 16-20. Nombrada en varias pero no top = 9-15. Nombrada de pasada en una o dos = 3-8. No aparece = 0.
+   - Considera la frecuencia (en cuántas de las N queries de ESTE motor aparece) y la prominencia (posición en la respuesta).
 
 2. **Posición en el mercado (0-10)**
    - Clasificación: "leader" | "challenger" | "niche_player"
-   - Comparada con volumen y prominencia de los top 5 competidores detectados
+   - Comparada con volumen y prominencia de los top 5 competidores detectados en las respuestas.
 
 3. **Calidad de presencia (0-20)**
-   - Score promedio ponderado de las fuentes citadas
-   - Authority de los dominios que aparecen
+   - Authority de las FUENTES REALES que el motor citó (campo "sources" de cada engine). Si el motor citó la web de la marca y directorios fuertes, alto. Si citó poco o fuentes débiles, bajo. Si no citó nada, bajo y dilo.
 
 4. **Percepción de marca (0-40)** — el componente con más peso
    - Sentimiento general (15)
    - Sentimiento contextual por tema (15)
    - Sentimiento por fuente (5)
    - Inversa de polarización (5)
+   - Solo aplica cuando la marca aparece. Si no aparece en este motor, percepción tiende a 0 (no hay nada que percibir), no la infles.
 
 5. **Cuota de participación / Share of Voice (0-10)**
-   - % de menciones de la marca / menciones totales (marca + competidores)
+   - % de menciones de la marca / menciones totales (marca + competidores) en las respuestas de este motor.
+
+COHERENCIA: el overall debe reflejar la realidad grounded. Una marca que el motor surfacea como recomendación principal NO puede salir con overall de 1 dígito. Una marca ausente NO puede salir inflada por "potencial". El número tiene que ser defendible si el cliente repite la misma búsqueda en el motor.
 
 ARQUETIPOS DE MARCA (asignar uno):
 "innovator" | "traditionalist" | "premium" | "disruptor" | "specialist" | "challenger"
@@ -104,8 +107,9 @@ EngineReport schema:
 }
 
 REGLAS:
-- Sé honesto sobre baja visibilidad. Si la marca casi no aparece, NO infles los scores con "potencial percibido".
+- Sé honesto sobre baja visibilidad. Si la marca casi no aparece, NO infles los scores con "potencial percibido". Y al revés: si el motor la surfacea fuerte, NO la subestimes.
 - El componente "brand_perception" puede ser generoso (la AI tiende a hablar positivamente), pero NO uses eso para inflar el overall.
+- FUENTES: "sources_evaluation" se construye SOLO a partir de las fuentes reales que el motor citó (el campo "sources" de cada engine en el input). PROHIBIDO inventar fuentes o authority scores. Si un engine no devolvió citas ("sources" vacío), pon "sources_evaluation": [] y dilo en growth_areas ("este motor respondió sin citar fuentes"). NUNCA atribuyas la falta de citas a una limitación de formato.
 - "narrative_themes" debe ser frases concretas extraídas de las respuestas, no boilerplate.
 - "key_strengths" y "growth_areas" deben ser específicos del nicho, no genéricos.
 - Si un engine devolvió respuestas irrelevantes (confundió la marca con otra entidad), redúcele el "confidence_pct" agresivamente.
@@ -119,6 +123,12 @@ export interface EngineResults {
     query_type: string;
     parsed: ParsedResponse;
   }>;
+  /**
+   * Fuentes REALES citadas por este motor (de la búsqueda web). Únicas, agregadas
+   * sobre todas las queries. El synthesis construye sources_evaluation SOLO desde
+   * acá. Vacío = el motor respondió sin citar (hay que decirlo, no inventar).
+   */
+  sources?: Array<{ url: string; title?: string }>;
 }
 
 export interface SynthesizeInput {

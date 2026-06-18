@@ -13,7 +13,7 @@
 export const PARSE_RESPONSE_PROMPT_V1 = `Eres un analista de auditoría AEO. Tu trabajo es leer la respuesta de un motor de IA a una query específica y extraer datos estructurados.
 
 Reglas:
-- Sé estricto con "brand_mentioned": solo true si el nombre exacto o claramente identificable de la marca aparece en la respuesta. Variaciones cercanas cuentan (ej. "Schwitzer Plastic Surgery" cuenta si la marca es "Dr. Jonathan Schwitzer Plastic Surgery"). Coincidencias parciales que podrían ser otra entidad NO cuentan.
+- "brand_mentioned": orientado a RECALL. true si la marca aparece de cualquier forma reconocible en la respuesta: el nombre, cualquiera de las variantes provistas, o el dominio. El match es case-insensitive y tolera puntuación, honoríficos (Dr., Mr.), sufijos de razón social (LLC, Inc), orden de palabras distinto y abreviaciones razonables. Ejemplo: si la marca es "Dr. Jonathan Schwitzer Plastic Surgery", cuentan "Dr Schwitzer", "Jonathan Schwitzer", "Schwitzer Plastic Surgery". Si la marca es "Trunk Space Storage" con dominio trunkandbarrel.com, cuentan "Trunk & Barrel", "Trunk and Barrel" y cualquier mención de trunkandbarrel.com. Solo pon false si NO aparece, o si lo que aparece es claramente OTRA entidad distinta (no una variante de esta marca).
 - "mention_position": 1 si la marca aparece primera, 2 si segunda, etc. null si no aparece.
 - "mention_context": "positive" si el motor la recomienda/elogia, "neutral" si solo la lista, "negative" si la critica, "comparative" si la usa solo para comparar.
 - "sentiment_score": -1 (muy negativo) a +1 (muy positivo). 0 si neutral o no aparece.
@@ -46,10 +46,39 @@ export interface ParseResponseInput {
   response_text: string;
   /** Marca a buscar en la respuesta. */
   brand_name: string;
+  /** Dominio de la marca. Cuenta como mención si aparece en la respuesta. */
+  domain: string;
   /** Lista semilla de competidores conocidos del sector (opcional, ayuda al parser). */
   competitor_seed?: string[];
   /** Engine que produjo la respuesta (para context). */
   engine: 'chatgpt' | 'perplexity' | 'gemini' | 'claude';
+}
+
+/**
+ * Variantes obvias de la marca para alimentar el match recall-oriented del parser.
+ * No es el matcher (eso lo decide el LLM con la regla del system prompt): son pistas
+ * concretas (honoríficos quitados, dominio, stem del dominio).
+ */
+export function brandVariants(brand: string, domain: string): string[] {
+  const out = new Set<string>();
+  const b = (brand ?? '').trim();
+  if (b) out.add(b);
+
+  const noHonorific = b.replace(/^(dr|dra|mr|mrs|ms|prof)\.?\s+/i, '').trim();
+  if (noHonorific && noHonorific !== b) out.add(noHonorific);
+
+  const host = (domain ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/.*$/, '');
+  if (host) out.add(host);
+
+  const stem = host.replace(/\.(com|net|org|io|co|us|biz|info|app|ai)(\.[a-z]{2})?$/, '');
+  if (stem && stem !== host) out.add(stem);
+
+  return [...out];
 }
 
 export interface ParsedResponse {
@@ -69,9 +98,13 @@ export function buildParseResponseUserPrompt(input: ParseResponseInput): string 
     ? `\nCompetidores conocidos del sector (úsalos como referencia, no son los únicos posibles): ${input.competitor_seed.join(', ')}`
     : '';
 
+  const variants = brandVariants(input.brand_name, input.domain);
+  const variantHint = `\nVariantes que cuentan como la marca (case-insensitive, recall-oriented): ${variants.join(', ')}`;
+
   return `QUERY EJECUTADA: "${input.query}"
 ENGINE: ${input.engine}
-MARCA A BUSCAR: ${input.brand_name}${seedHint}
+MARCA A BUSCAR: ${input.brand_name}
+DOMINIO: ${input.domain}${variantHint}${seedHint}
 
 RESPUESTA DEL MOTOR:
 """

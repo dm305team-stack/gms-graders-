@@ -9,7 +9,7 @@
  * the unlock gate (UnlockInput) captures the lead and triggers delivery.
  */
 
-import type { SynthesizeOutput } from '@gms/llm';
+import type { SynthesizeOutput, EngineResults } from '@gms/llm';
 
 /** Engine labels as used in the report (the AEO domain calls OpenAI "chatgpt"). */
 export type EngineLabel = 'chatgpt' | 'perplexity' | 'gemini' | 'claude';
@@ -60,6 +60,12 @@ export interface Analysis {
   /** {chatgpt, perplexity, gemini, claude} overall scores, once synthesized. */
   overall_scores?: Record<EngineLabel, number>;
   synthesis?: SynthesizeOutput;
+  /**
+   * Stage C raw output per engine: parsed responses (brand_mentioned, position,
+   * etc.) + the real citations the engine returned. Persisted in the sidecar so
+   * the scoring is auditable. Absent on mock runs.
+   */
+  parsed_engine_results?: EngineResults[];
   /** Aggregate LLM cost for the run, in USD. */
   cost_usd?: number;
   /** Engine call counters, for the status payload. */

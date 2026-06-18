@@ -12,6 +12,8 @@ Tu tarea: generar un conjunto representativo de queries que un cliente real ejec
 Importante:
 - Las queries NO deben mencionar el nombre de la marca a evaluar.
 - Las queries deben reflejar el comportamiento real de búsqueda de un cliente potencial.
+- ANCLA las queries al producto/servicio ESPECÍFICO (campo "product"), no a la categoría madre. Si el product es "wine storage", las queries son de wine storage (lockers, climate-controlled, collectors), NO de self-storage genérico. Si es "rhinoplasty", son de rinoplastia, no de cirugía plástica en general. El nicho es lo que define a los competidores reales y lo que el cliente realmente busca.
+- Incluye el matiz geográfico del "location" cuando aplique (barrio, calle, ciudad), tal como lo escribiría un cliente local.
 - Combina queries en inglés y español si la audiencia es bilingüe.
 - Mezcla intents: descubrimiento, comparación, decisión, especificidad técnica.
 
@@ -52,6 +54,8 @@ export interface GenerateQueriesInput {
   location: string;
   specialty: string;
   org_type: string;
+  /** Producto/servicio específico (ej. "wine storage", "rhinoplasty"). Ancla el nicho. */
+  product?: string;
   doctor_name?: string;
   bilingual?: boolean;
 }
@@ -80,9 +84,10 @@ export function buildGenerateQueriesUserPrompt(input: GenerateQueriesInput): str
 - Domain: ${input.domain}
 - Location: ${input.location}
 - Specialty: ${input.specialty}
+${input.product ? `- Product / service line (ANCLA EL NICHO aquí): ${input.product}` : ''}
 - Org type: ${input.org_type}
 ${input.doctor_name ? `- Doctor name: ${input.doctor_name}` : ''}
 ${input.bilingual ? '- Bilingual (genera mix en/es)' : '- Solo inglés'}
 
-Genera el JSON de queries siguiendo la estructura indicada.`;
+Genera el JSON de queries siguiendo la estructura indicada. Las queries deben ser del producto/servicio específico (el campo "product" si está presente), no de la categoría madre.`;
 }

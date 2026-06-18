@@ -35,6 +35,15 @@ export interface LLMRequest {
   modelOverride?: string;
   /** Solo para Perplexity. Si está presente, fuerza búsqueda web. */
   searchRecency?: 'hour' | 'day' | 'week' | 'month' | 'year';
+  /**
+   * Activa búsqueda web / grounding en el proveedor (cuando lo soporta).
+   * Solo lo prenden las llamadas a motores evaluados (Stage B del pipeline AEO):
+   * mide lo que el usuario ve al buscar, no la memoria paramétrica del modelo.
+   * Las stages auxiliares (generación de queries, parsing, síntesis) lo dejan
+   * en false porque operan sobre texto ya provisto y no deben buscar.
+   * Perplexity ignora este flag (siempre busca).
+   */
+  webSearch?: boolean;
 }
 
 /**

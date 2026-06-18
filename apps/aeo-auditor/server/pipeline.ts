@@ -54,6 +54,20 @@ const REPORT_LABELS: EngineLabel[] = ['chatgpt', 'perplexity', 'gemini', 'claude
  */
 const ORG_TYPE = 'other';
 
+/** Dedupe citations by URL, preserving first-seen order and title. */
+function dedupeSources(
+  sources: Array<{ url: string; title?: string }>,
+): Array<{ url: string; title?: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ url: string; title?: string }> = [];
+  for (const s of sources) {
+    if (!s?.url || seen.has(s.url)) continue;
+    seen.add(s.url);
+    out.push({ url: s.url, title: s.title });
+  }
+  return out;
+}
+
 /** Tolerant JSON extraction from an LLM response (handles ``` fences and prose). */
 function extractJson<T>(text: string): T {
   let t = text.trim();
@@ -118,7 +132,7 @@ async function runRealStages(
   log: (m: string) => void,
 ): Promise<SynthesizeOutput> {
   const { input } = analysis;
-  const maxQueries = Math.max(1, Number(process.env.AEO_MAX_QUERIES || 6));
+  const maxQueries = Math.max(1, Number(process.env.AEO_MAX_QUERIES || 12));
   let costUsd = 0;
 
   // Claude drives the auxiliary stages (queries, parsing, synthesis).
@@ -138,6 +152,7 @@ async function runRealStages(
           domain: input.domain,
           location: input.location,
           specialty: input.specialty,
+          product: input.product,
           org_type: ORG_TYPE,
           bilingual: true,
         }),
@@ -165,6 +180,8 @@ async function runRealStages(
     query: GeneratedQuery;
     engine: EngineId;
     text: string;
+    /** Real citations the engine returned from its web search. */
+    sources?: Array<{ url: string; title?: string }>;
   }
   const rawAnswers: RawAnswer[] = [];
   let engineCalls = 0;
@@ -175,9 +192,12 @@ async function runRealStages(
     const settled = await Promise.allSettled(
       entries.map(([, client]) =>
         client.complete({
+          // AEO: the engine runs its OWN web search against a category query
+          // that never names the brand. We measure what it surfaces and cites.
+          webSearch: true,
           messages: [{ role: 'user', content: query.query }],
           temperature: 0.5,
-          maxTokens: 1024,
+          maxTokens: 2048,
         }),
       ),
     );
@@ -186,7 +206,12 @@ async function runRealStages(
       engineCalls += 1;
       if (result.status === 'fulfilled') {
         costUsd += result.value.costUsd;
-        rawAnswers.push({ query, engine, text: result.value.content });
+        rawAnswers.push({
+          query,
+          engine,
+          text: result.value.content,
+          sources: result.value.sources,
+        });
       } else {
         engineErrors += 1;
         const reason =
@@ -213,6 +238,7 @@ async function runRealStages(
               query: answer.query.query,
               response_text: answer.text,
               brand_name: input.brand,
+              domain: input.domain,
               engine: ENGINE_LABEL[answer.engine],
             }),
           },
@@ -243,7 +269,17 @@ async function runRealStages(
     parsed_responses: parsed
       .filter((p) => ENGINE_LABEL[p.engine] === label)
       .map((p) => ({ query: p.query.query, query_type: p.query.type, parsed: p.parsed })),
+    // Real citations this engine returned, deduped across its queries. The
+    // synthesis builds sources_evaluation only from these (no fabrication).
+    sources: dedupeSources(
+      rawAnswers
+        .filter((a) => ENGINE_LABEL[a.engine] === label)
+        .flatMap((a) => a.sources ?? []),
+    ),
   }));
+
+  // Persist Stage C output (parsed responses + real citations) for auditability.
+  analysis.parsed_engine_results = engineResults;
 
   const researchBase = loadResearchBase();
 
@@ -307,9 +343,11 @@ function buildEngineClients(
   const clients: Partial<Record<EngineId, ReturnType<typeof createClient>>> = {};
   for (const engine of ENGINE_IDS) {
     if (engine === 'perplexity') {
+      // Perplexity is the natively-grounded engine; enable by default when a key
+      // is present. Opt out explicitly with ENABLE_PERPLEXITY=false.
       const enabled =
         Boolean(process.env.PERPLEXITY_API_KEY) &&
-        process.env.ENABLE_PERPLEXITY === 'true';
+        process.env.ENABLE_PERPLEXITY !== 'false';
       if (!enabled) continue;
     }
     try {

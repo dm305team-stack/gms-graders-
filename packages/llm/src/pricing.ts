@@ -18,6 +18,8 @@ export interface ModelPricing {
   cachedInputPerMtok?: number;
   /** Costo fijo por request, si aplica (Perplexity Sonar). */
   perRequest?: number;
+  /** USD por búsqueda web (web_search tool / Google Search grounding). */
+  searchPerCall?: number;
 }
 
 /**
@@ -26,21 +28,24 @@ export interface ModelPricing {
  */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   // ---- Anthropic Claude ----
-  'claude-opus-4-7':         { inputPerMtok: 5,   outputPerMtok: 25,  cachedInputPerMtok: 0.5 },
-  'claude-opus-4-6':         { inputPerMtok: 5,   outputPerMtok: 25,  cachedInputPerMtok: 0.5 },
-  'claude-sonnet-4-6':       { inputPerMtok: 3,   outputPerMtok: 15,  cachedInputPerMtok: 0.3 },
+  // web_search server tool: ~$10 / 1k búsquedas = $0.01/búsqueda.
+  'claude-opus-4-7':         { inputPerMtok: 5,   outputPerMtok: 25,  cachedInputPerMtok: 0.5, searchPerCall: 0.01 },
+  'claude-opus-4-6':         { inputPerMtok: 5,   outputPerMtok: 25,  cachedInputPerMtok: 0.5, searchPerCall: 0.01 },
+  'claude-sonnet-4-6':       { inputPerMtok: 3,   outputPerMtok: 15,  cachedInputPerMtok: 0.3, searchPerCall: 0.01 },
   'claude-haiku-4-5-20251001': { inputPerMtok: 1, outputPerMtok: 5,   cachedInputPerMtok: 0.1 },
 
   // ---- OpenAI ----
   // Verificar IDs exactos contra docs antes de prod. Pricing referencia.
-  'gpt-5.2':                 { inputPerMtok: 1.75, outputPerMtok: 14 },
-  'gpt-5.4':                 { inputPerMtok: 2.5,  outputPerMtok: 15 },
+  // Responses API web_search tool: ~$10 / 1k llamadas = $0.01/búsqueda.
+  'gpt-5.2':                 { inputPerMtok: 1.75, outputPerMtok: 14, searchPerCall: 0.01 },
+  'gpt-5.4':                 { inputPerMtok: 2.5,  outputPerMtok: 15, searchPerCall: 0.01 },
 
   // ---- Google Gemini ----
-  'gemini-3.1-pro':          { inputPerMtok: 2, outputPerMtok: 12 },
-  'gemini-3-pro':            { inputPerMtok: 2, outputPerMtok: 12 },
-  'gemini-2.5-pro':          { inputPerMtok: 1.25, outputPerMtok: 10 },
-  'gemini-3-flash':          { inputPerMtok: 0.3, outputPerMtok: 1.5 },
+  // Google Search grounding: ~$35 / 1k prompts grounded = $0.035/búsqueda.
+  'gemini-3.1-pro':          { inputPerMtok: 2, outputPerMtok: 12, searchPerCall: 0.035 },
+  'gemini-3-pro':            { inputPerMtok: 2, outputPerMtok: 12, searchPerCall: 0.035 },
+  'gemini-2.5-pro':          { inputPerMtok: 1.25, outputPerMtok: 10, searchPerCall: 0.035 },
+  'gemini-3-flash':          { inputPerMtok: 0.3, outputPerMtok: 1.5, searchPerCall: 0.035 },
 
   // ---- Perplexity ----
   // Sonar incluye per-request fee adicional según search context size.
@@ -64,6 +69,8 @@ export function calculateCost(args: {
   tokensOut: number;
   tokensCached?: number;
   perRequestCount?: number;
+  /** Número de búsquedas web ejecutadas por el motor en esta llamada. */
+  searchCount?: number;
 }): number {
   const pricing = MODEL_PRICING[args.model] ?? FALLBACK;
 
@@ -78,8 +85,13 @@ export function calculateCost(args: {
   const requestCost = pricing.perRequest
     ? (args.perRequestCount ?? 1) * pricing.perRequest
     : 0;
+  const searchCost = pricing.searchPerCall
+    ? (args.searchCount ?? 0) * pricing.searchPerCall
+    : 0;
 
-  return Number((inputCost + cachedCost + outputCost + requestCost).toFixed(5));
+  return Number(
+    (inputCost + cachedCost + outputCost + requestCost + searchCost).toFixed(5),
+  );
 }
 
 /**
