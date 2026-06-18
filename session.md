@@ -4,10 +4,11 @@ Fecha de actualización: 2026-06-18. Esta es la entrada principal del proyecto.
 Lee este archivo primero. Para detalle histórico ver `session-2026-05-20.md` →
 `session-2026-05-21.md` → `session-2026-05-28.md` → `session-2026-06-18.md`.
 
-> ⚠️ Lo último (2026-06-18): se arregló LOCAL el bug de scoring (medía sin
-> búsqueda web, daba 5/100 a marcas visibles). Ahora los motores corren con
-> grounding. Validado (5/100 → 72). **Sin commitear y sin deploy: prod
-> `scanaeo.com` todavía corre el código viejo con el bug.** Detalle en
+> ✅ Lo último (2026-06-18): se arregló el bug de scoring (medía sin búsqueda
+> web, daba 5/100 a marcas visibles). Ahora los motores corren con grounding.
+> **Commiteado (`15f68fc`) y DESPLEGADO a prod.** Smoke real en prod
+> `AEO-2769a791`: 5/100 → 45/72/75 (cover ~64), $2.34. Pendiente: cargar
+> `PERPLEXITY_API_KEY` en el `.env` de prod para el 4º motor. Detalle en
 > `session-2026-06-18.md`.
 
 ---
@@ -29,7 +30,7 @@ SMTP + Anthropic configurados), `/console.html` gateada con basic auth (`401`).
 | Persistencia sidecar JSON (`<id>.json` por audit) | ✅ Operativo | Sobrevive reinicio (`source: sidecar`) |
 | Repo en GitHub | ✅ `dm305team-stack/gms-graders-` PRIVATE | Branch `feature/aeo-pdf-report` al commit `d1bf95d` |
 | **Deploy Hostinger VPS (Docker)** | ✅ **EN PRODUCCIÓN** | `https://scanaeo.com` 200 OK · health `ok` · TLS válido → Aug 27 2026 |
-| **Fix grounding (motores buscan en web)** | ✅ Hecho local + validado · ⏳ sin commit/deploy | `AEO-2183317a`: 5/100 → 72 cover; prod aún con el bug viejo |
+| **Fix grounding (motores buscan en web)** | ✅ **DESPLEGADO** (`15f68fc`) | Prod smoke `AEO-2769a791`: 5/100 → 45/72/75 (cover ~64), $2.34. Falta key Perplexity |
 | GitHub App (`/install-github-app`) | ⏸️ Pausado | Fases 1-2 hechas, 3-5 sin ejecutar |
 
 ---
@@ -104,14 +105,13 @@ curl -X POST http://localhost:3334/api/run-analysis -H "Content-Type: applicatio
 
 ## Pendientes
 
-- **Commitear el fix de grounding** en `feature/aeo-pdf-report` (hoy sin commitear).
-- **Cargar `PERPLEXITY_API_KEY`** en `.env` (vacío hoy; los otros 3 motores OK).
-  Con eso entra el 4º motor. Ya está cableado para prender solo.
-- **Deploy del fix a prod:** `git pull` + `docker compose up -d --build` en el VPS
-  (rebuild necesario por SDKs nuevos). Hasta hacerlo, `scanaeo.com` sigue con el
-  bug del 5/100.
-- **Validar end-to-end en prod:** correr una auditoría real en `scanaeo.com` y
-  confirmar entrega de email (PDF adjunto) vía Resend en vivo.
+- **Cargar `PERPLEXITY_API_KEY` en el `.env` de PROD** (`/docker/gms-graders/apps/aeo-auditor/.env`,
+  hoy vacío) y `docker compose up -d --build`. Con eso entra el 4º motor.
+- **Costo por audit en prod ≈ $2.34** (12 queries × 3 motores grounded; sube con
+  Perplexity). Endpoint público: cada submission cuesta eso. Si el volumen lo amerita,
+  bajar `AEO_MAX_QUERIES` en el `.env`/compose de prod.
+- **Validar email en prod:** completar el unlock en `scanaeo.com` y confirmar
+  entrega del PDF vía Resend en vivo.
 - Renovación TLS: confirmar que `certbot` tiene el timer/cron activo (cert vence
   Aug 27 2026).
 - Eventualmente: merge de `feature/aeo-pdf-report` a `main` (hoy prod corre sobre
