@@ -18,3 +18,42 @@
     padding: 40px 18px 60px;
   }
 }
+
+/* Page footer: legal links below the vectors strip. */
+.footer {
+  position: relative;
+  z-index: 2;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 22px 32px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+}
+
+.footerNote {
+  color: var(--ink-mute);
+}
+
+.footerLink {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-strong);
+  padding-bottom: 1px;
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: var(--accent-orange);
+}
+
+@media (max-width: 720px) {
+  .footer {
+    padding: 18px 18px 36px;
+  }
+}

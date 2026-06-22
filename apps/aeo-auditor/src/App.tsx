@@ -49,6 +49,18 @@ export default function App() {
       </main>
 
       <VectorsStrip lead="The 4 /" highlight="AI engines evaluated" />
+
+      <footer className={s.footer}>
+        <span className={s.footerNote}>© 2026 Digital Media 305</span>
+        <a
+          className={s.footerLink}
+          href="/terms.html"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Terms of Service
+        </a>
+      </footer>
     </>
   );
 }
