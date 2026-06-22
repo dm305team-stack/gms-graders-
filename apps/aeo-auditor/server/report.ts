@@ -616,24 +616,42 @@ function collectAuditedQueries(analysis: Analysis): Array<{ query: string; curat
 function renderPromptsBlock(analysis: Analysis): string {
   const audited = collectAuditedQueries(analysis);
   if (!audited.length) return '';
+
+  // Cap to what fits in the scorecard page whitespace without touching the
+  // footer. Curated prompts are sorted first, so the client's own always show.
+  const MAX = 6;
+  const shown = audited.slice(0, MAX);
+  const more = audited.length - shown.length;
   const curatedCount = audited.filter((q) => q.curated).length;
+
   const lede = curatedCount
     ? `${curatedCount} you specified, ${audited.length - curatedCount} generated for your niche.`
     : `Generated for your niche, none naming the brand.`;
-  const items = audited
+
+  // Single-line per prompt (truncate) so nothing wraps and the block height is
+  // predictable, keeping it clear of the page footer.
+  const trunc = (q: string) => (q.length > 52 ? `${q.slice(0, 51).trim()}…` : q);
+  const items = shown
     .map(
       (q) =>
-        `<li style="margin-bottom:5px">${esc(q.query)}${
+        `<li style="margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(
+          trunc(q.query),
+        )}${
           q.curated
-            ? ' <span style="font-family:var(--mono,monospace);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent,#c0392b);margin-left:6px">you specified</span>'
+            ? ' <span style="font-family:var(--mono,monospace);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent,#c0392b)"> you</span>'
             : ''
         }</li>`,
     )
     .join('');
-  return `<div style="margin-top:24px">
+  const moreNote = more > 0
+    ? `<div class="mc-body" style="margin-top:6px;font-size:11px">+ ${more} more prompt${more === 1 ? '' : 's'} tested.</div>`
+    : '';
+
+  return `<div style="margin-top:18px">
     <div class="mc-title">The prompts we evaluated</div>
-    <div class="mc-body" style="margin-bottom:8px">${lede}</div>
-    <ol style="margin:0;padding-left:20px;font-size:12.5px;line-height:1.6;columns:2;column-gap:32px">${items}</ol>
+    <div class="mc-body" style="margin-bottom:6px">${lede}</div>
+    <ol style="margin:0;padding-left:18px;font-size:11px;line-height:1.45;columns:2;column-gap:28px">${items}</ol>
+    ${moreNote}
   </div>`;
 }
 
@@ -677,7 +695,6 @@ function renderMethodologyPage(analysis: Analysis, engines: EngineLabel[]): stri
       <div class="mc-body">Diagnostic snapshot, not a placement guarantee. Engine outputs vary between runs by design &mdash; only 27 percent of query fan-out sub-queries remain consistent across repeated invocations. Production AEO monitoring averages 5&ndash;10 runs per prompt to smooth this variance.</div>
     </div>
   </div>
-  ${renderPromptsBlock(analysis)}
   ${pageFooter(analysis, 'Methodology', '03 / 10')}
 </section>`;
 }
@@ -755,6 +772,7 @@ function renderScorecardPage(
     </tbody>
   </table>
   <p class="scorecard-context">${context}</p>
+  ${renderPromptsBlock(analysis)}
   ${pageFooter(analysis, 'Cross-Engine Scorecard', '04 / 10')}
 </section>`;
 }
@@ -762,6 +780,12 @@ function renderScorecardPage(
 // ---------------------------------------------------------------------------
 // Section: Per-Engine Findings (page 5)
 // ---------------------------------------------------------------------------
+
+/** Strip protocol/www and cap length so a long cited URL stays on one line. */
+function shortenSource(name: string): string {
+  const clean = (name ?? '').replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+  return clean.length > 34 ? `${clean.slice(0, 33).replace(/[\s/_.\-]+$/, '')}…` : clean;
+}
 
 function renderPerEnginePage(
   analysis: Analysis,
@@ -784,7 +808,7 @@ function renderPerEnginePage(
               const raw = Number(s.score) || 0;
               const score = raw <= 10 ? Math.round(raw * 10) : Math.round(raw);
               return `<div class="src-row"><span class="src-name">${esc(
-                s.name,
+                shortenSource(s.name),
               )}</span><span class="src-score">${score}</span></div>`;
             })
             .join('')
