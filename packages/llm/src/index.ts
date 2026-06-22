@@ -74,6 +74,7 @@ export {
 export {
   PARSE_RESPONSE_PROMPT_V1,
   buildParseResponseUserPrompt,
+  brandVariants,
   type ParseResponseInput,
   type ParsedResponse,
 } from './prompts/parse-response.js';

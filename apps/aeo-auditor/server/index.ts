@@ -21,8 +21,10 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import 'dotenv/config';
 
+import { brandVariants } from '@gms/llm';
+
 import { emailConfigured, sendLeadNotification, sendReportEmail } from './email.js';
-import { runPipeline } from './pipeline.js';
+import { generateQueries, runPipeline } from './pipeline.js';
 import { renderEmailHtml } from './report.js';
 import {
   listAudits,
@@ -61,15 +63,56 @@ function normalizeDomain(raw: string): string {
     .trim();
 }
 
+/**
+ * Up to 5 client-curated prompts (Peec-style), trimmed, deduped, brand-free.
+ * AEO rule: a prompt that names the brand or its domain corrupts the measurement,
+ * so we drop those silently (the client is guided not to include them).
+ */
+function parseCustomQueries(raw: unknown, brand: string, domain: string): string[] {
+  if (!Array.isArray(raw)) return [];
+  const variants = brandVariants(brand, domain)
+    .map((v) => v.toLowerCase())
+    .filter((v) => v.length >= 3);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw.slice(0, 5)) {
+    const q = str(item, 150);
+    if (!q) continue;
+    const lc = q.toLowerCase();
+    if (variants.some((v) => lc.includes(v))) continue; // brand-free guard
+    const key = lc.replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(q);
+  }
+  return out;
+}
+
+/** Canned long-tail suggestions for mock mode, so the review step works offline. */
+function mockSuggestions(input: RunAnalysisInput): string[] {
+  const p = input.product || input.specialty || 'services';
+  const loc = input.location || 'your area';
+  return [
+    `where can I find ${p} near ${loc}`,
+    `best ${p} in ${loc} for first-timers`,
+    `how much does ${p} cost in ${loc}`,
+    `who offers ${p} close to ${loc} with good reviews`,
+    `looking for ${p} in ${loc}, what are my options`,
+  ];
+}
+
 /** Validate the 5-field scope form posted to /api/run-analysis. */
 function parseRunInput(body: unknown): { input?: RunAnalysisInput; errors: string[] } {
   const b = (body ?? {}) as Record<string, unknown>;
+  const domain = normalizeDomain(str(b.domain, 200));
+  const brand = str(b.brand, 200);
   const input: RunAnalysisInput = {
-    domain: normalizeDomain(str(b.domain, 200)),
-    brand: str(b.brand, 200),
+    domain,
+    brand,
     location: str(b.location, 200),
     specialty: str(b.specialty, 80),
     product: str(b.product, 200),
+    custom_queries: parseCustomQueries(b.custom_queries, brand, domain),
   };
 
   const errors: string[] = [];
@@ -159,7 +202,29 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-/** Step 1: the 5-field scope form. Creates the analysis and runs the audit. */
+/**
+ * Review step: turn the scope into 5 editable long-tail prompt suggestions
+ * (Peec-style). One Haiku call, no engines. The client edits these, then posts
+ * them back as `custom_queries` to /api/run-analysis.
+ */
+app.post('/api/suggest-queries', async (req, res) => {
+  const { input, errors } = parseRunInput(req.body);
+  if (!input) {
+    return res.status(400).json({ error: 'invalid form payload', details: errors });
+  }
+  if (MOCK) {
+    return res.json({ queries: mockSuggestions(input) });
+  }
+  try {
+    const { queries } = await generateQueries(input, { count: 5, longtail: true });
+    res.json({ queries: queries.map((q) => q.query) });
+  } catch (err) {
+    console.error('[suggest-queries] failed:', err);
+    res.status(502).json({ error: 'could not generate suggestions' });
+  }
+});
+
+/** Step 2: the scope + curated prompts. Creates the analysis and runs the audit. */
 app.post('/api/run-analysis', (req, res) => {
   const { input, errors } = parseRunInput(req.body);
   if (!input) {

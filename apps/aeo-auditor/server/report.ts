@@ -598,6 +598,45 @@ function renderVerdictPage(
 // Section: Methodology (page 3)
 // ---------------------------------------------------------------------------
 
+/** Unique queries actually run, curated (client-specified) first. */
+function collectAuditedQueries(analysis: Analysis): Array<{ query: string; curated: boolean }> {
+  const seen = new Set<string>();
+  const out: Array<{ query: string; curated: boolean }> = [];
+  for (const er of analysis.parsed_engine_results ?? []) {
+    for (const pr of er.parsed_responses) {
+      const key = pr.query.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ query: pr.query, curated: pr.query_type === 'user_provided' });
+    }
+  }
+  return out.sort((a, b) => Number(b.curated) - Number(a.curated));
+}
+
+function renderPromptsBlock(analysis: Analysis): string {
+  const audited = collectAuditedQueries(analysis);
+  if (!audited.length) return '';
+  const curatedCount = audited.filter((q) => q.curated).length;
+  const lede = curatedCount
+    ? `${curatedCount} you specified, ${audited.length - curatedCount} generated for your niche.`
+    : `Generated for your niche, none naming the brand.`;
+  const items = audited
+    .map(
+      (q) =>
+        `<li style="margin-bottom:5px">${esc(q.query)}${
+          q.curated
+            ? ' <span style="font-family:var(--mono,monospace);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent,#c0392b);margin-left:6px">you specified</span>'
+            : ''
+        }</li>`,
+    )
+    .join('');
+  return `<div style="margin-top:24px">
+    <div class="mc-title">The prompts we evaluated</div>
+    <div class="mc-body" style="margin-bottom:8px">${lede}</div>
+    <ol style="margin:0;padding-left:20px;font-size:12.5px;line-height:1.6;columns:2;column-gap:32px">${items}</ol>
+  </div>`;
+}
+
 function renderMethodologyPage(analysis: Analysis, engines: EngineLabel[]): string {
   const queries = analysis.stats?.queries ?? 6;
   const total = queries * engines.length;
@@ -638,6 +677,7 @@ function renderMethodologyPage(analysis: Analysis, engines: EngineLabel[]): stri
       <div class="mc-body">Diagnostic snapshot, not a placement guarantee. Engine outputs vary between runs by design &mdash; only 27 percent of query fan-out sub-queries remain consistent across repeated invocations. Production AEO monitoring averages 5&ndash;10 runs per prompt to smooth this variance.</div>
     </div>
   </div>
+  ${renderPromptsBlock(analysis)}
   ${pageFooter(analysis, 'Methodology', '03 / 10')}
 </section>`;
 }

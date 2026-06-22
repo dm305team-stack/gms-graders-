@@ -36,7 +36,7 @@ import {
 import { renderPdf } from './pdf.js';
 import { renderReportHtml, extractOverallScores } from './report.js';
 import { REPORTS_DIR, persistSidecar } from './storage.js';
-import type { Analysis, EngineLabel } from './types.js';
+import type { Analysis, EngineLabel, RunAnalysisInput } from './types.js';
 
 /** llm EngineId -> AEO report label (OpenAI is "chatgpt" in the AEO domain). */
 const ENGINE_LABEL: Record<EngineId, EngineLabel> = {
@@ -77,6 +77,65 @@ function extractJson<T>(text: string): T {
   const last = t.lastIndexOf('}');
   if (first !== -1 && last > first) t = t.slice(first, last + 1);
   return JSON.parse(t) as T;
+}
+
+/**
+ * Stage A: generate category queries with Claude Haiku. Shared by the pipeline
+ * and the /api/suggest-queries endpoint. Queries never name the brand.
+ * `longtail` biases toward conversational, specific prompts (Peec-style).
+ */
+export async function generateQueries(
+  input: RunAnalysisInput,
+  opts: { count?: number; longtail?: boolean } = {},
+): Promise<{ queries: GeneratedQuery[]; costUsd: number }> {
+  const claude = createClient('claude');
+  const resp = await claude.complete({
+    system: GENERATE_QUERIES_PROMPT_V1,
+    messages: [
+      {
+        role: 'user',
+        content: buildGenerateQueriesUserPrompt({
+          brand_name: input.brand,
+          domain: input.domain,
+          location: input.location,
+          specialty: input.specialty,
+          product: input.product,
+          org_type: ORG_TYPE,
+          bilingual: true,
+          longtail: opts.longtail,
+        }),
+      },
+    ],
+    modelOverride: getFastModel(),
+    enableCache: true,
+    temperature: 0.4,
+    maxTokens: 2048,
+  });
+  const all = extractJson<GenerateQueriesOutput>(resp.content).queries ?? [];
+  return { queries: opts.count ? all.slice(0, opts.count) : all, costUsd: resp.costUsd };
+}
+
+/** Cheap es/en heuristic for a user-provided query. Defaults to en. */
+function detectQueryLang(q: string): 'en' | 'es' {
+  const t = q.toLowerCase();
+  if (/[áéíóúñ¿¡]/.test(t)) return 'es';
+  if (/\b(el|la|los|las|de|para|mejor|cerca|dónde|donde|cuánto|cuanto|cómo|como|qué)\b/.test(t)) {
+    return 'es';
+  }
+  return 'en';
+}
+
+/** Dedupe queries by normalized text, preserving order (curated first). */
+function dedupeQueries(queries: GeneratedQuery[]): GeneratedQuery[] {
+  const seen = new Set<string>();
+  const out: GeneratedQuery[] = [];
+  for (const q of queries) {
+    const key = q.query.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(q);
+  }
+  return out;
 }
 
 /**
@@ -142,32 +201,19 @@ async function runRealStages(
   // ---- Stage A: generate queries -----------------------------------------
   analysis.status = 'generating_queries';
   log('-> generating queries (Claude Haiku)');
-  const queryResp = await claude.complete({
-    system: GENERATE_QUERIES_PROMPT_V1,
-    messages: [
-      {
-        role: 'user',
-        content: buildGenerateQueriesUserPrompt({
-          brand_name: input.brand,
-          domain: input.domain,
-          location: input.location,
-          specialty: input.specialty,
-          product: input.product,
-          org_type: ORG_TYPE,
-          bilingual: true,
-        }),
-      },
-    ],
-    modelOverride: fastModel,
-    enableCache: true,
-    temperature: 0.4,
-    maxTokens: 2048,
-  });
-  costUsd += queryResp.costUsd;
-  const allQueries = extractJson<GenerateQueriesOutput>(queryResp.content).queries ?? [];
-  const queries = allQueries.slice(0, maxQueries);
+  const gen = await generateQueries(input);
+  costUsd += gen.costUsd;
+
+  // Client-curated prompts (Peec-style) are guaranteed in; auto-generated ones
+  // fill the rest up to the cap. Brand-free filtering happened server-side.
+  const curated: GeneratedQuery[] = (input.custom_queries ?? []).map((q) => ({
+    query: q,
+    type: 'user_provided',
+    language: detectQueryLang(q),
+  }));
+  const queries = dedupeQueries([...curated, ...gen.queries]).slice(0, maxQueries);
   if (!queries.length) throw new Error('query generation returned no queries');
-  log(`generated ${allQueries.length} queries, running ${queries.length}`);
+  log(`queries: ${curated.length} curated + ${gen.queries.length} auto -> running ${queries.length}`);
 
   // ---- Stage B: run engines ----------------------------------------------
   analysis.status = 'running_engines';

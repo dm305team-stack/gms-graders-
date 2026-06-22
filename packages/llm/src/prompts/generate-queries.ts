@@ -58,6 +58,13 @@ export interface GenerateQueriesInput {
   product?: string;
   doctor_name?: string;
   bilingual?: boolean;
+  /**
+   * Modo long-tail: prompts conversacionales y específicos como los escribe un
+   * cliente real (ej. "im looking for wine storage units in miami beach where
+   * can i find by alton road"), no queries cortas de 3 palabras. Para el paso
+   * de sugerencias editables (estilo Peec).
+   */
+  longtail?: boolean;
 }
 
 export interface GeneratedQuery {
@@ -70,7 +77,8 @@ export interface GeneratedQuery {
     | 'problem_solution'
     | 'price_inquiry'
     | 'before_after'
-    | 'doctor_name_lookup';
+    | 'doctor_name_lookup'
+    | 'user_provided';
   language: 'en' | 'es';
 }
 
@@ -88,6 +96,7 @@ ${input.product ? `- Product / service line (ANCLA EL NICHO aquí): ${input.prod
 - Org type: ${input.org_type}
 ${input.doctor_name ? `- Doctor name: ${input.doctor_name}` : ''}
 ${input.bilingual ? '- Bilingual (genera mix en/es)' : '- Solo inglés'}
+${input.longtail ? '- MODO LONG-TAIL: cada query es una frase conversacional, larga y específica, tal como la tipearía un cliente real (ej. "im looking for wine storage units in miami beach where can i find by alton road"). NO queries cortas de 3-4 palabras. Mantené el matiz geográfico y la intención concreta.' : ''}
 
 Genera el JSON de queries siguiendo la estructura indicada. Las queries deben ser del producto/servicio específico (el campo "product" si está presente), no de la categoría madre.`;
 }

@@ -33,6 +33,11 @@ export interface RunAnalysisInput {
   specialty: string;
   /** Free-text product or service line, from the scope form. */
   product: string;
+  /**
+   * Client-curated long-tail prompts (Peec-style), from the review step. Up to 5,
+   * brand-free. Guaranteed into the run; auto-generated queries fill the rest.
+   */
+  custom_queries?: string[];
 }
 
 /** Contact details captured at the unlock gate, posted to POST /api/analyses/:id/unlock. */
