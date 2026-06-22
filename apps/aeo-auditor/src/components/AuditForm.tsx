@@ -11,7 +11,7 @@ interface AnalysisStatus {
   error: string | null;
 }
 
-type Phase = 'form' | 'queries' | 'running' | 'unlock' | 'delivered';
+type Phase = 'form' | 'running' | 'unlock' | 'delivered';
 
 /**
  * AEO funnel: scope form -> running (audit) -> unlock (blurred real report +
@@ -33,56 +33,21 @@ export function AuditForm() {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
 
-  // Curated prompts (step 2): editable long-tail suggestions the client completes.
-  const [customQueries, setCustomQueries] = useState<string[]>([]);
-  const [launching, setLaunching] = useState(false);
+  // Search prompts the client fills (or auto-suggests), below the scope fields.
+  const [customQueries, setCustomQueries] = useState<string[]>(['', '', '', '', '']);
+  const [suggesting, setSuggesting] = useState(false);
 
   // Unlock gate (step 3).
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [deliveredEmail, setDeliveredEmail] = useState('');
 
-  /** Step 1: scope form. Fetches 5 editable long-tail prompt suggestions. */
+  /** Scope form + optional curated prompts. Starts the audit directly. */
   async function handleScopeSubmit(e: FormEvent) {
     e.preventDefault();
     if (starting || analysisId) return;
     setRunError(null);
     setStarting(true);
-
-    try {
-      const res = await fetch('/api/suggest-queries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, brand, location, specialty: sector, product }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const detail = Array.isArray(data.details) ? data.details.join(', ') : data.error;
-        throw new Error(detail || `Server returned ${res.status}`);
-      }
-      const qs: string[] = Array.isArray(data.queries) ? data.queries : [];
-      // Always 5 editable slots; prefill with suggestions, blanks for the rest.
-      setCustomQueries([0, 1, 2, 3, 4].map((i) => (typeof qs[i] === 'string' ? qs[i] : '')));
-      setPhase('queries');
-    } catch (err) {
-      setRunError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      );
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  function updateQuery(i: number, value: string) {
-    setCustomQueries((prev) => prev.map((q, idx) => (idx === i ? value : q)));
-  }
-
-  /** Step 2: curated prompts. Starts the audit with the client's prompts. */
-  async function handleRunSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (launching || analysisId) return;
-    setRunError(null);
-    setLaunching(true);
 
     try {
       const custom_queries = customQueries.map((q) => q.trim()).filter(Boolean);
@@ -103,7 +68,39 @@ export function AuditForm() {
         err instanceof Error ? err.message : 'Something went wrong. Please try again.',
       );
     } finally {
-      setLaunching(false);
+      setStarting(false);
+    }
+  }
+
+  function updateQuery(i: number, value: string) {
+    setCustomQueries((prev) => prev.map((q, idx) => (idx === i ? value : q)));
+  }
+
+  /** Optional helper: auto-fill the 5 prompt boxes with long-tail suggestions. */
+  async function handleSuggest() {
+    if (suggesting) return;
+    setRunError(null);
+    setSuggesting(true);
+
+    try {
+      const res = await fetch('/api/suggest-queries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, brand, location, specialty: sector, product }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = Array.isArray(data.details) ? data.details.join(', ') : data.error;
+        throw new Error(detail || `Fill in the fields above first.`);
+      }
+      const qs: string[] = Array.isArray(data.queries) ? data.queries : [];
+      setCustomQueries([0, 1, 2, 3, 4].map((i) => (typeof qs[i] === 'string' ? qs[i] : '')));
+    } catch (err) {
+      setRunError(
+        err instanceof Error ? err.message : 'Could not suggest prompts. Fill in the fields above first.',
+      );
+    } finally {
+      setSuggesting(false);
     }
   }
 
@@ -236,52 +233,6 @@ export function AuditForm() {
     );
   }
 
-  // ---- Phase: queries (review + edit the 5 prompts) ----------------------
-  if (phase === 'queries') {
-    return (
-      <FormCard id="audit" className={s.formCard}>
-        <form onSubmit={handleRunSubmit}>
-          <div className={s.fieldGroup}>
-            <div className={s.statusEyebrow}>Step 2 of 2</div>
-            <h3 className={s.statusTitle}>Review the prompts we will test</h3>
-            <div className={s.fieldHelp}>
-              These are the customer-style searches we run against the AI engines.
-              Edit them to match how your customers actually search. Do not include
-              your brand name.
-            </div>
-          </div>
-
-          {customQueries.map((q, i) => (
-            <div className={s.fieldGroup} key={i}>
-              <FieldLabel htmlFor={`query-${i}`}>Prompt {i + 1}</FieldLabel>
-              <TextInput
-                type="text"
-                id={`query-${i}`}
-                value={q}
-                onChange={(e) => updateQuery(i, e.target.value)}
-                placeholder="where can I find … near …"
-              />
-            </div>
-          ))}
-
-          <SubmitButton loading={launching}>
-            {launching ? 'Starting…' : 'Run the audit'}
-          </SubmitButton>
-
-          {runError && (
-            <div className={s.submitError} role="alert">
-              Could not start the audit: {runError}
-            </div>
-          )}
-
-          <div className={s.deliveryTag}>
-            We add a few auto-generated prompts to round out the analysis.
-          </div>
-        </form>
-      </FormCard>
-    );
-  }
-
   // ---- Phase: scope form (default) ---------------------------------------
   return (
     <FormCard id="audit" className={s.formCard}>
@@ -360,8 +311,35 @@ export function AuditForm() {
           />
         </div>
 
+        <div className={s.fieldGroupSpaced}>
+          <FieldLabel htmlFor="query-0">Search prompts to test</FieldLabel>
+          <div className={s.fieldHelp}>
+            Five customer-style searches we run against the AI engines. Leave them blank
+            and we generate them for you. Do not include your brand name.
+          </div>
+          {customQueries.map((q, i) => (
+            <div className={s.queryRow} key={i}>
+              <TextInput
+                type="text"
+                id={`query-${i}`}
+                value={q}
+                onChange={(e) => updateQuery(i, e.target.value)}
+                placeholder={`Prompt ${i + 1}`}
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            className={s.suggestBtn}
+            onClick={handleSuggest}
+            disabled={suggesting}
+          >
+            {suggesting ? 'Suggesting…' : 'Suggest prompts for me'}
+          </button>
+        </div>
+
         <SubmitButton loading={starting}>
-          {starting ? 'Preparing prompts…' : 'Continue'}
+          {starting ? 'Starting…' : 'Grade my brand'}
         </SubmitButton>
 
         {runError && (
