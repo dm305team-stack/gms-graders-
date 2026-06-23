@@ -1,15 +1,21 @@
 # Session Handoff — AEO Visibility Auditor
 
-Fecha de actualización: 2026-06-18. Esta es la entrada principal del proyecto.
+Fecha de actualización: 2026-06-22. Esta es la entrada principal del proyecto.
 Lee este archivo primero. Para detalle histórico ver `session-2026-05-20.md` →
-`session-2026-05-21.md` → `session-2026-05-28.md` → `session-2026-06-18.md`.
+`session-2026-05-21.md` → `session-2026-05-28.md` → `session-2026-06-18.md` →
+`session-2026-06-22.md`.
 
-> ✅ Lo último (2026-06-18): se arregló el bug de scoring (medía sin búsqueda
-> web, daba 5/100 a marcas visibles). Ahora los motores corren con grounding.
-> **Commiteado (`15f68fc`) y DESPLEGADO a prod.** Smoke real en prod
-> `AEO-2769a791`: 5/100 → 45/72/75 (cover ~64), $2.34. Pendiente: cargar
-> `PERPLEXITY_API_KEY` en el `.env` de prod para el 4º motor. Detalle en
-> `session-2026-06-18.md`.
+> ✅ Lo último (2026-06-22, todo DESPLEGADO a prod, HEAD `cd2edef`):
+> 1. **Grounding** (06-18): motores corren con búsqueda web, arregla el 5/100.
+> 2. **Prompts curados estilo Peec:** 5 cuadros editables en el form, debajo de
+>    "Product or service", opcionales, con botón "Suggest". Las queries salen en
+>    el reporte. Endpoint `/api/suggest-queries`.
+> 3. **Términos de Servicio:** `/terms.html` + link en footer (data, AI, arbitraje,
+>    DMCA).
+> 4. **Fix de layout del reporte:** ningún texto toca el borde inferior (pág 3/4/5).
+>
+> Detalle en `session-2026-06-22.md`. Proceso: el operador autorizó deploy SIN
+> preguntar. Pendiente clave: cargar `PERPLEXITY_API_KEY` en el `.env` de prod.
 
 ---
 
@@ -31,6 +37,9 @@ SMTP + Anthropic configurados), `/console.html` gateada con basic auth (`401`).
 | Repo en GitHub | ✅ `dm305team-stack/gms-graders-` PRIVATE | Branch `feature/aeo-pdf-report` al commit `d1bf95d` |
 | **Deploy Hostinger VPS (Docker)** | ✅ **EN PRODUCCIÓN** | `https://scanaeo.com` 200 OK · health `ok` · TLS válido → Aug 27 2026 |
 | **Fix grounding (motores buscan en web)** | ✅ **DESPLEGADO** (`15f68fc`) | Prod smoke `AEO-2769a791`: 5/100 → 45/72/75 (cover ~64), $2.34. Falta key Perplexity |
+| **Prompts curados Peec (in-form, 5 cuadros)** | ✅ **DESPLEGADO** (`b172678`+`a6354bc`) | Cuadros bajo "Product"; filtro brand-free OK; queries en el reporte |
+| **Términos de Servicio** (`/terms.html` + footer) | ✅ **DESPLEGADO** (`8fdda38`) | 4 bloques (data/AI/arbitraje/DMCA); sin dirección física |
+| **Fix layout reporte (borde inferior)** | ✅ **DESPLEGADO** (`cd2edef`) | Verificado contra `AEO-e2341ba4`, pág 3/4/5 con aire al footer |
 | GitHub App (`/install-github-app`) | ⏸️ Pausado | Fases 1-2 hechas, 3-5 sin ejecutar |
 
 ---
@@ -38,14 +47,15 @@ SMTP + Anthropic configurados), `/console.html` gateada con basic auth (`401`).
 ## Git
 
 Branch activo: **`feature/aeo-pdf-report`**, tracking `origin/feature/aeo-pdf-report`.
+Prod (`scanaeo.com`) corre este mismo branch al HEAD actual.
 
 ```
-d1bf95d docs(deploy): clarify container binds 0.0.0.0, host publishes 127.0.0.1
-3b316f3 chore(deploy): Docker build-on-VPS path (Dockerfile, compose, runbook)
-0945d93 chore: hero copy tweak + refresh session handoff doc
-06afe58 chore(deploy): VPS runbook + nginx config with gated console
-44bf076 feat(aeo): operator console with per-audit charts and JSON persistence
-2be0b4b chore(deploy): pin pnpm to 9.15.4 via packageManager + cap engines <11
+cd2edef fix(aeo): keep report text clear of the bottom page edge
+a6354bc fix(aeo): move the 5 prompt boxes into the scope form under Product
+8fdda38 feat(aeo): add Terms of Service page + footer link
+b172678 feat(aeo): client-curated long-tail prompts (Peec-style)
+d6e9532 docs(session): grounding fix deployed to prod, handoff updated
+15f68fc feat(aeo): measure grounded AI visibility (fix false 5/100)
 ```
 
 Remote: `https://github.com/dm305team-stack/gms-graders-.git` (guion final, privado).
@@ -93,7 +103,9 @@ pnpm --filter @gms/aeo-auditor dev:all
 ```
 
 Mock sin costo: `AEO_MOCK_PIPELINE=true pnpm --filter @gms/aeo-auditor dev:all`.
-`.env` actual: `AEO_MOCK_PIPELINE=false` (REAL, ~$0.21/audit).
+`.env` actual: `AEO_MOCK_PIPELINE=false` (REAL grounded, ~$2/audit con 12 queries × 3 motores).
+Render del reporte desde un sidecar sin correr audit: script tsx que llame
+`renderReportHtml` + `renderPdf` (ver `session-2026-06-22.md`).
 
 Audit por CLI:
 ```bash
@@ -125,7 +137,8 @@ curl -X POST http://localhost:3334/api/run-analysis -H "Content-Type: applicatio
 
 ```
 GET   /api/health
-POST  /api/run-analysis                 → kick-off audit
+POST  /api/suggest-queries               → 5 prompts long-tail (paso de sugerencias) [NUEVO]
+POST  /api/run-analysis                 → kick-off audit (acepta custom_queries)
 GET   /api/analyses                      → lista (consola; memoria + disco)   [NUEVO]
 GET   /api/analyses/:id                  → estado de un audit
 GET   /api/analyses/:id/data             → payload completo + synthesis (consola) [NUEVO]
@@ -149,6 +162,7 @@ POST  /api/analyses/:id/unlock           → captura de lead + emails
 - **Imagen Docker:** tag de Playwright debe igualar el npm `playwright` (^1.60.0).
 - **`tsx watch` borra el `Map`** al recargar (audits en curso se pierden; los
   sidecars JSON y reportes en `.aeo-data/` sobreviven).
-- **Perplexity disabled** por default (`ENABLE_PERPLEXITY` sin set): corren 3 motores.
+- **Perplexity:** prende solo si hay `PERPLEXITY_API_KEY` (gate `ENABLE_PERPLEXITY !== 'false'`).
+  En prod la key está vacía → corren 3 motores (chatgpt/gemini/claude grounded).
 - **Consola es interna:** en prod va detrás de basic auth (nginx); UFW debe bloquear
   el `:3334` directo o el basic auth se saltea.
